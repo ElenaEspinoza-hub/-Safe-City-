@@ -17,6 +17,7 @@
   },
   "devDependencies": {
     "@insforge/cli": "^0.2.0",
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
     "@vitejs/plugin-vue": "^6.0.7",
     "autoprefixer": "^10.5.4",
     "postcss": "^8.5.20",
