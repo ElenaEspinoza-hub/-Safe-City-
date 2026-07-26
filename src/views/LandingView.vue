@@ -9,20 +9,17 @@ const router = useRouter()
 const isMenuOpen = ref(false)
 const slideIndex = ref(0)
 const reports = ref([])
-const reportsError = ref('')
 
 const currentYear = computed(() => new Date().getFullYear())
 
 const recentReports = computed(() => reports.value.slice(0, 3))
 
 const loadReports = async () => {
-  reportsError.value = ''
-
   try {
     reports.value = await fetchReports(10)
   } catch (error) {
     reports.value = []
-    reportsError.value = error.message || 'No se pudieron cargar los reportes.'
+    console.warn('No se pudieron cargar los reportes.', error)
   }
 }
 
@@ -243,7 +240,7 @@ onUnmounted(() => {
       </div>
 
       <div v-else class="recent-empty">
-        <p>{{ reportsError || 'Aun no hay reportes registrados. Crea el primero desde la seccion Reportar.' }}</p>
+        <p>No hay accidentes reportados.</p>
       </div>
     </section>
 
@@ -273,7 +270,7 @@ onUnmounted(() => {
       </div>
 
       <div v-else class="recent-empty">
-        <p>{{ reportsError || 'Aun no hay reportes para mostrar como noticias.' }}</p>
+        <p>No hay accidentes reportados.</p>
       </div>
     </section>
 
