@@ -2,18 +2,28 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import logoImage from '../assets/logo.png'
-import { getReports } from '../utils/reportsStore'
+import { fetchReports } from '../utils/reportsStore'
 import { authLoading, authUser, signOut } from '../utils/authStore'
 
 const router = useRouter()
 const isMenuOpen = ref(false)
 const slideIndex = ref(0)
 const reports = ref([])
+const reportsError = ref('')
 
 const currentYear = computed(() => new Date().getFullYear())
 
-const loadReports = () => {
-  reports.value = getReports().slice(0, 3)
+const recentReports = computed(() => reports.value.slice(0, 3))
+
+const loadReports = async () => {
+  reportsError.value = ''
+
+  try {
+    reports.value = await fetchReports(10)
+  } catch (error) {
+    reports.value = []
+    reportsError.value = error.message || 'No se pudieron cargar los reportes.'
+  }
 }
 
 const accidentCards = [
@@ -34,23 +44,7 @@ const accidentCards = [
   }
 ]
 
-const newsSlides = [
-  {
-    title: 'Accidente en Los Chorros',
-    description: 'Se reporta trafico debido a un derrumbe. Utiliza rutas alternas.',
-    image: '/landing/accidente-en-los-chorros.jpg'
-  },
-  {
-    title: 'Nueva Ruta Segura',
-    description: 'Safe City recomienda nuevas rutas para evitar congestionamientos.',
-    image: '/landing/accidente-nuevas-rutas.webp'
-  },
-  {
-    title: 'Alerta por lluvias',
-    description: 'Conduce con precaucion y evita zonas propensas a inundaciones.',
-    image: '/landing/lluvias-accidentes.jpeg'
-  }
-]
+const newsSlides = computed(() => reports.value.slice(0, 10))
 
 let autoSlideTimer = null
 
@@ -86,11 +80,13 @@ const handleSignOut = async () => {
 }
 
 const nextSlide = () => {
-  slideIndex.value = (slideIndex.value + 1) % newsSlides.length
+  if (!newsSlides.value.length) return
+  slideIndex.value = (slideIndex.value + 1) % newsSlides.value.length
 }
 
 const previousSlide = () => {
-  slideIndex.value = (slideIndex.value - 1 + newsSlides.length) % newsSlides.length
+  if (!newsSlides.value.length) return
+  slideIndex.value = (slideIndex.value - 1 + newsSlides.value.length) % newsSlides.value.length
 }
 
 const startAutoSlide = () => {
@@ -114,6 +110,10 @@ const closeMenu = () => {
 
 watch(() => router.currentRoute.value.fullPath, () => {
   loadReports()
+})
+
+watch(newsSlides, (slides) => {
+  if (slideIndex.value >= slides.length) slideIndex.value = 0
 })
 
 onMounted(() => {
@@ -229,8 +229,8 @@ onUnmounted(() => {
     <section class="recent-section">
       <h2>Accidentes recientes</h2>
 
-      <div v-if="reports.length" class="recent-grid">
-        <article v-for="report in reports" :key="report.id" class="recent-card">
+      <div v-if="recentReports.length" class="recent-grid">
+        <article v-for="report in recentReports" :key="report.id" class="recent-card">
           <img v-if="report.photoDataUrl" :src="report.photoDataUrl" :alt="report.title" />
           <img v-else :src="accidentCards[0].image" :alt="report.title" />
 
@@ -243,23 +243,23 @@ onUnmounted(() => {
       </div>
 
       <div v-else class="recent-empty">
-        <p>Aun no hay reportes registrados. Crea el primero desde la seccion Reportar.</p>
+        <p>{{ reportsError || 'Aun no hay reportes registrados. Crea el primero desde la seccion Reportar.' }}</p>
       </div>
     </section>
 
     <section id="noticias" class="news-section">
       <h2>Ultimas Noticias</h2>
 
-      <div class="news-slider">
+      <div v-if="newsSlides.length" class="news-slider">
         <div class="news-track" :style="{ transform: `translateX(-${slideIndex * 100}%)` }">
           <article v-for="slide in newsSlides" :key="slide.title" class="news-slide">
-            <img :src="slide.image" :alt="slide.title" />
+            <img :src="slide.photoDataUrl || accidentCards[0].image" :alt="slide.title" />
             <div class="news-slide__overlay"></div>
 
             <div class="news-slide__content">
               <h3>{{ slide.title }}</h3>
               <p>{{ slide.description }}</p>
-              <button type="button">Ver mas</button>
+              <button type="button" @click="openReportDetail(slide.id)">Ver mas</button>
             </div>
           </article>
         </div>
@@ -270,6 +270,10 @@ onUnmounted(() => {
         <div class="slider-dots" aria-hidden="true">
           <span v-for="(_, index) in newsSlides" :key="`dot-${index}`" class="slider-dot" :class="{ 'is-active': slideIndex === index }"></span>
         </div>
+      </div>
+
+      <div v-else class="recent-empty">
+        <p>{{ reportsError || 'Aun no hay reportes para mostrar como noticias.' }}</p>
       </div>
     </section>
 

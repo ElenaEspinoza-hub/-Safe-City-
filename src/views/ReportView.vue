@@ -209,8 +209,8 @@ const submitReport = async () => {
 
   isSaving.value = true
 
-  setTimeout(() => {
-    addReport({
+  try {
+    await addReport({
       ...form,
       title: form.title.trim(),
       description: form.description.trim(),
@@ -218,10 +218,13 @@ const submitReport = async () => {
       createdAt: new Date().toISOString()
     })
 
-    isSaving.value = false
-    savedMessage.value = 'Reporte preparado para registro.'
+    savedMessage.value = 'Reporte registrado correctamente.'
     router.push('/')
-  }, 800)
+  } catch (error) {
+    savedMessage.value = error.message || 'No se pudo registrar el reporte. Intenta de nuevo.'
+  } finally {
+    isSaving.value = false
+  }
 }
 
 onUnmounted(() => {
@@ -396,7 +399,7 @@ onUnmounted(() => {
         </label>
         <small v-if="formErrors.consent" class="error">{{ formErrors.consent }}</small>
 
-        <p v-if="savedMessage" class="success">{{ savedMessage }}</p>
+        <p v-if="savedMessage" :class="savedMessage.includes('correctamente') ? 'success' : 'error-message'">{{ savedMessage }}</p>
 
         <div class="actions-row">
           <button class="secondary-btn" type="button" @click="goBack">Cancelar</button>
@@ -625,6 +628,12 @@ textarea {
 .success {
   margin: 0;
   color: #0f9f6e;
+  font-weight: 700;
+}
+
+.error-message {
+  margin: 0;
+  color: #b91c1c;
   font-weight: 700;
 }
 
