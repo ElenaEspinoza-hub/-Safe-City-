@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import logoImage from '../assets/logo.png'
 import { getReports } from '../utils/reportsStore'
+import { authLoading, authUser, signOut } from '../utils/authStore'
 
 const router = useRouter()
 const isMenuOpen = ref(false)
@@ -60,6 +61,30 @@ const openMap = () => router.push('/mapa')
 const openProfile = () => router.push('/perfil')
 const openReportDetail = (reportId) => router.push({ name: 'report-detail', params: { id: reportId } })
 
+const isSigningOut = ref(false)
+const signOutError = ref('')
+
+const handleSignOut = async () => {
+  if (isSigningOut.value) return
+
+  isSigningOut.value = true
+  signOutError.value = ''
+  const { error, auditError } = await signOut()
+  isSigningOut.value = false
+
+  if (error) {
+    signOutError.value = 'No se pudo cerrar la sesion. Intenta de nuevo.'
+    return
+  }
+
+  if (auditError) {
+    console.warn('El cierre de sesion se completo, pero no se pudo registrar el evento.', auditError)
+  }
+
+  closeMenu()
+  router.push('/')
+}
+
 const nextSlide = () => {
   slideIndex.value = (slideIndex.value + 1) % newsSlides.length
 }
@@ -116,10 +141,16 @@ onUnmounted(() => {
           <a class="nav-link" href="#noticias">Noticias</a>
         </nav>
 
-        <div class="auth-actions auth-actions--desktop">
+        <div v-if="!authLoading" class="auth-actions auth-actions--desktop">
+          <button v-if="authUser" type="button" class="btn-auth btn-auth--solid" :disabled="isSigningOut" @click="handleSignOut">
+            {{ isSigningOut ? 'Cerrando...' : 'Cerrar sesion' }}
+          </button>
+          <template v-else>
           <button type="button" class="btn-auth btn-auth--ghost" @click="openLogin">Iniciar sesion</button>
           <button type="button" class="btn-auth btn-auth--solid" @click="openRegister">Registrarse</button>
+          </template>
         </div>
+        <p v-if="signOutError" class="auth-error auth-error--desktop">{{ signOutError }}</p>
 
         <button type="button" class="menu-toggle" aria-label="Abrir menu" @click="toggleMenu">
           <span></span>
@@ -135,10 +166,16 @@ onUnmounted(() => {
         <button class="nav-link" type="button" @click="closeMenu(); openProfile()">Perfil</button>
         <RouterLink to="/guia" class="nav-link" @click="closeMenu">Guia</RouterLink>
         <a class="nav-link" href="#noticias" @click="closeMenu">Noticias</a>
-        <div class="auth-actions auth-actions--mobile">
+        <div v-if="!authLoading" class="auth-actions auth-actions--mobile">
+          <button v-if="authUser" type="button" class="btn-auth btn-auth--solid" :disabled="isSigningOut" @click="handleSignOut">
+            {{ isSigningOut ? 'Cerrando...' : 'Cerrar sesion' }}
+          </button>
+          <template v-else>
           <button type="button" class="btn-auth btn-auth--ghost" @click="openLogin">Iniciar sesion</button>
           <button type="button" class="btn-auth btn-auth--solid" @click="openRegister">Registrarse</button>
+          </template>
         </div>
+        <p v-if="signOutError" class="auth-error">{{ signOutError }}</p>
       </nav>
     </header>
 
@@ -367,6 +404,23 @@ onUnmounted(() => {
 
 .btn-auth:hover {
   transform: translateY(-1px);
+}
+
+.btn-auth:disabled {
+  cursor: wait;
+  opacity: 0.75;
+}
+
+.auth-error {
+  margin: 0;
+  color: #fecaca;
+  font-size: 0.85rem;
+}
+
+.auth-error--desktop {
+  position: absolute;
+  top: calc(100% - 0.1rem);
+  right: 1.25rem;
 }
 
 .menu-toggle {
@@ -792,7 +846,8 @@ onUnmounted(() => {
 
 @media (max-width: 980px) {
   .navbar__links,
-  .auth-actions--desktop {
+  .auth-actions--desktop,
+  .auth-error--desktop {
     display: none;
   }
 

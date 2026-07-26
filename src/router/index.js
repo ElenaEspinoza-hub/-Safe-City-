@@ -8,6 +8,7 @@ import RoutesView from '../views/RoutesView.vue'
 import ReportDetailView from '../views/ReportDetailView.vue'
 import GuiaView from '../views/GuiaView.vue'
 import PerfilView from '../views/PerfilView.vue'
+import { initializeAuth } from '../utils/authStore'
 
 const routes = [
   {
@@ -18,17 +19,20 @@ const routes = [
   {
     path: '/auth',
     name: 'auth',
-    component: AuthView
+    component: AuthView,
+    meta: { guestOnly: true }
   },
   {
     path: '/login',
     name: 'login',
-    component: LoginView
+    component: LoginView,
+    meta: { guestOnly: true }
   },
   {
     path: '/register',
     name: 'register',
-    component: RegisterView
+    component: RegisterView,
+    meta: { guestOnly: true }
   },
   {
     path: '/reportar',
@@ -48,7 +52,8 @@ const routes = [
   {
     path: '/perfil',
     name: 'perfil',
-    component: PerfilView
+    component: PerfilView,
+    meta: { requiresAuth: true }
   },
   {
     path: '/reporte/:id',
@@ -61,6 +66,18 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes
+})
+
+router.beforeEach(async (to) => {
+  const { user } = await initializeAuth()
+
+  if (to.meta.requiresAuth && !user) {
+    return { name: 'auth', query: { redirect: to.fullPath } }
+  }
+
+  if (to.meta.guestOnly && user) {
+    return { name: 'home' }
+  }
 })
 
 export default router

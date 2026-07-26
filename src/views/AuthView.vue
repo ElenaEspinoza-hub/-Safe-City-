@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import logoImage from '../assets/logo.png'
 import { insforge } from '../utils/insforgeClient'
+import { setAuthenticatedUser } from '../utils/authStore'
 
 const router = useRouter()
 const OAUTH_PENDING_KEY = 'safe-city-oauth-pending'
@@ -98,6 +99,7 @@ const checkExistingSession = async () => {
 
   if (data?.user) {
     clearPendingOAuth()
+    setAuthenticatedUser(data.user)
     isProcessingOAuth.value = false
     router.replace('/')
     return
@@ -116,6 +118,7 @@ const checkExistingSession = async () => {
 
     if (retryData?.user) {
       clearPendingOAuth()
+      setAuthenticatedUser(retryData.user)
       isProcessingOAuth.value = false
       router.replace('/')
       return

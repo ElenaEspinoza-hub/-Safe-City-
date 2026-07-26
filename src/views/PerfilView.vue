@@ -2,7 +2,8 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import logoImage from '../assets/logo.png'
-import { getCurrentUser, updateCurrentUser } from '../utils/userStore'
+import { insforge } from '../utils/insforgeClient'
+import { authUser, initializeAuth } from '../utils/authStore'
 
 const router = useRouter()
 const profile = ref({
@@ -18,17 +19,19 @@ const saveMessage = ref('')
 
 const goToHome = () => router.push('/')
 
-const loadProfile = () => {
-  const currentUser = getCurrentUser()
+const loadProfile = async () => {
+  await initializeAuth()
+  const currentUser = authUser.value
 
   if (currentUser) {
+    const savedProfile = currentUser.profile || {}
     profile.value = {
-      name: currentUser.name || '',
+      name: savedProfile.name || currentUser.name || '',
       email: currentUser.email || '',
-      phone: currentUser.phone || '',
-      address: currentUser.address || '',
-      bio: currentUser.bio || 'Usuario de Safe City',
-      photo: currentUser.photo || ''
+      phone: savedProfile.phone || '',
+      address: savedProfile.address || '',
+      bio: savedProfile.bio || 'Usuario de Safe City',
+      photo: savedProfile.avatar_url || ''
     }
   }
 }
@@ -44,23 +47,19 @@ const handlePhotoChange = (event) => {
   reader.readAsDataURL(file)
 }
 
-const saveProfile = () => {
+const saveProfile = async () => {
   isSaving.value = true
   saveMessage.value = ''
 
-  const updatedUser = updateCurrentUser({
+  const { error } = await insforge.auth.setProfile({
     name: profile.value.name,
-    email: profile.value.email,
     phone: profile.value.phone,
     address: profile.value.address,
     bio: profile.value.bio,
-    photo: profile.value.photo
+    avatar_url: profile.value.photo
   })
-
-  setTimeout(() => {
-    isSaving.value = false
-    saveMessage.value = updatedUser ? 'Cambios guardados correctamente.' : 'No se pudo guardar el perfil.'
-  }, 400)
+  isSaving.value = false
+  saveMessage.value = error ? 'No se pudo guardar el perfil.' : 'Cambios guardados correctamente.'
 }
 
 onMounted(() => {
