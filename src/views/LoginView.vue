@@ -2,7 +2,7 @@
 import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import logoImage from '../assets/logo.png'
-import { insforge } from '../utils/insforgeClient'
+import { getInsforgeConfigError, insforge } from '../utils/insforgeClient'
 import { setAuthenticatedUser } from '../utils/authStore'
 
 const router = useRouter()
@@ -32,20 +32,32 @@ const submitLogin = async () => {
     return
   }
 
-  isSubmitting.value = true
-  const { data, error } = await insforge.auth.signInWithPassword({
-    email: form.email,
-    password: form.password
-  })
-  isSubmitting.value = false
-
-  if (error || !data?.user) {
-    submitError.value = error?.message || 'Correo o contrasena incorrectos.'
+  const configError = getInsforgeConfigError()
+  if (configError) {
+    submitError.value = configError
     return
   }
 
-  setAuthenticatedUser(data.user)
-  router.push('/perfil')
+  isSubmitting.value = true
+
+  try {
+    const { data, error } = await insforge.auth.signInWithPassword({
+      email: form.email,
+      password: form.password
+    })
+
+    if (error || !data?.user) {
+      submitError.value = error?.message || 'Correo o contrasena incorrectos.'
+      return
+    }
+
+    setAuthenticatedUser(data.user)
+    router.push('/perfil')
+  } catch (error) {
+    submitError.value = error.message || 'No se pudo iniciar sesion.'
+  } finally {
+    isSubmitting.value = false
+  }
 }
 </script>
 

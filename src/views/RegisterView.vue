@@ -2,7 +2,7 @@
 import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import logoImage from '../assets/logo.png'
-import { insforge } from '../utils/insforgeClient'
+import { getInsforgeConfigError, insforge } from '../utils/insforgeClient'
 import { setAuthenticatedUser } from '../utils/authStore'
 
 const router = useRouter()
@@ -32,8 +32,19 @@ const goToLogin = () => router.push('/login')
 const goToAuth = () => router.push('/auth')
 
 const finishRegistration = async (user) => {
-  // Keep non-auth fields in InsForge's profile metadata, never in localStorage.
-  await insforge.auth.setProfile({ name: form.name, phone: form.phone })
+  const configError = getInsforgeConfigError()
+  if (configError) {
+    submitError.value = configError
+    return
+  }
+
+  try {
+    // Keep non-auth fields in InsForge's profile metadata, never in localStorage.
+    await insforge.auth.setProfile({ name: form.name, phone: form.phone })
+  } catch (error) {
+    console.warn('No fue posible guardar el perfil del usuario.', error)
+  }
+
   setAuthenticatedUser(user)
   router.push('/perfil')
 }
@@ -45,27 +56,39 @@ const submitRegister = async () => {
     return
   }
 
+  const configError = getInsforgeConfigError()
+  if (configError) {
+    submitError.value = configError
+    return
+  }
+
   isSubmitting.value = true
-  const { data, error } = await insforge.auth.signUp({
-    name: form.name,
-    email: form.email,
-    password: form.password
-  })
-  isSubmitting.value = false
 
-  if (error) {
+  try {
+    const { data, error } = await insforge.auth.signUp({
+      name: form.name,
+      email: form.email,
+      password: form.password
+    })
+
+    if (error) {
+      submitError.value = error.message || 'No se pudo crear la cuenta.'
+      return
+    }
+
+    if (data?.requireEmailVerification) {
+      pendingEmail.value = form.email
+      awaitingVerification.value = true
+      return
+    }
+
+    if (data?.user) {
+      await finishRegistration(data.user)
+    }
+  } catch (error) {
     submitError.value = error.message || 'No se pudo crear la cuenta.'
-    return
-  }
-
-  if (data?.requireEmailVerification) {
-    pendingEmail.value = form.email
-    awaitingVerification.value = true
-    return
-  }
-
-  if (data?.user) {
-    await finishRegistration(data.user)
+  } finally {
+    isSubmitting.value = false
   }
 }
 
