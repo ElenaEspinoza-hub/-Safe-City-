@@ -25,6 +25,27 @@ const incidentMarkers = []
 
 const severityClass = (severity) => ['alta', 'media', 'baja'].includes(String(severity).toLowerCase()) ? String(severity).toLowerCase() : 'media'
 const formatDistance = (distanceKm) => distanceKm < 1 ? `${Math.round(distanceKm * 1000)} m` : `${distanceKm.toFixed(1)} km`
+const formatReportedTime = (createdAt) => {
+  const date = new Date(createdAt)
+  if (Number.isNaN(date.getTime())) return 'Hora no disponible'
+
+  return new Intl.DateTimeFormat('es-SV', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }).format(date)
+}
+
+const formatReportedDate = (createdAt) => {
+  const date = new Date(createdAt)
+  if (Number.isNaN(date.getTime())) return 'Fecha no disponible'
+
+  return new Intl.DateTimeFormat('es-SV', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  }).format(date)
+}
 
 const getIncidentIcon = (severity) =>
   L.divIcon({
@@ -66,6 +87,7 @@ const addIncidentMarker = (incident) => {
   const popupHtml = `
     <div class="popup-card">
       <strong>${incident.title}</strong>
+      <small>Reportado el ${formatReportedDate(incident.createdAt)} a las ${formatReportedTime(incident.createdAt)}</small>
       <span>${incident.severity} · ${incident.status}</span>
     </div>
   `
@@ -236,6 +258,7 @@ onBeforeUnmount(() => {
         <article v-for="incident in visibleIncidents" :key="incident.id" class="incident-item">
           <div>
             <h3>{{ incident.title }}</h3>
+            <small class="report-time">Reportado: {{ formatReportedDate(incident.createdAt) }}, {{ formatReportedTime(incident.createdAt) }}</small>
             <p>{{ Number(incident.lat).toFixed(4) }}, {{ Number(incident.lng).toFixed(4) }} · {{ formatDistance(incident.distanceKm) }}</p>
           </div>
           <span :class="`badge badge--${severityClass(incident.severity)}`">{{ incident.severity }}</span>
@@ -424,6 +447,14 @@ h1 {
   color: #f1f5ff;
 }
 
+.report-time {
+  display: block;
+  margin-top: 0.3rem;
+  color: #8fd3ff;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .incident-item p {
   margin: 0.25rem 0 0;
   color: #bed0e8;
@@ -527,6 +558,11 @@ h1 {
 
 :global(.popup-card strong) {
   font-size: 0.95rem;
+}
+
+:global(.popup-card small) {
+  color: #8fd3ff;
+  font-size: 0.78rem;
 }
 
 :global(.popup-card span) {
