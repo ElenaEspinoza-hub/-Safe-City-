@@ -72,6 +72,62 @@ export const fetchReports = async (limit = 10) => {
   return reports
 }
 
+const EARTH_RADIUS_KM = 6371
+
+const toRadians = (value) => (value * Math.PI) / 180
+
+export const getDistanceInKm = (from, to) => {
+  const fromLat = Number(from?.lat)
+  const fromLng = Number(from?.lng)
+  const toLat = Number(to?.lat)
+  const toLng = Number(to?.lng)
+
+  if (![fromLat, fromLng, toLat, toLng].every(Number.isFinite)) return Number.POSITIVE_INFINITY
+
+  const latitudeDelta = toRadians(toLat - fromLat)
+  const longitudeDelta = toRadians(toLng - fromLng)
+  const haversine =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(toRadians(fromLat)) * Math.cos(toRadians(toLat)) * Math.sin(longitudeDelta / 2) ** 2
+
+  return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine))
+}
+
+export const fetchNearbyReports = async (location, { radiusKm = 12, limit = 50 } = {}) => {
+  const lat = Number(location?.lat)
+  const lng = Number(location?.lng)
+
+  if (![lat, lng].every(Number.isFinite)) {
+    throw new Error('La ubicacion no es valida para buscar accidentes cercanos.')
+  }
+
+  // Un cuadro delimitador reduce los datos descargados; la distancia exacta se calcula en el navegador.
+  const latitudeDelta = radiusKm / 111.32
+  const longitudeDelta = radiusKm / (111.32 * Math.cos(toRadians(lat)))
+  const publicFields = 'id,title,category,severity,description,lat,lng,photo_data_url,created_at'
+  const query = new URLSearchParams({
+    select: publicFields,
+    and: `(lat.gte.${lat - latitudeDelta},lat.lte.${lat + latitudeDelta},lng.gte.${lng - longitudeDelta},lng.lte.${lng + longitudeDelta})`,
+    order: 'created_at.desc',
+    limit: String(limit)
+  })
+
+  const response = await fetch(`${REPORTS_API_URL}?${query.toString()}`, { headers: getHeaders() })
+
+  if (!response.ok) {
+    throw new Error('No se pudieron cargar los reportes cercanos desde la base de datos.')
+  }
+
+  const reports = (await response.json())
+    .map(normalizeReport)
+    .map((report) => ({ ...report, distanceKm: getDistanceInKm({ lat, lng }, report) }))
+    .filter((report) => report.distanceKm <= radiusKm)
+    .sort((first, second) => first.distanceKm - second.distanceKm)
+
+  saveCachedReports(reports)
+  return reports
+}
+
 export const addReport = async (report) => {
   const normalized = normalizeReport(report)
   const payload = {

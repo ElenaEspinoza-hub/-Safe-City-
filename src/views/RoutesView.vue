@@ -3,72 +3,47 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { fetchNearbyReports } from '../utils/reportsStore'
 
 const router = useRouter()
 const mapContainer = ref(null)
 const mapReady = ref(false)
 const mapInitError = ref('')
 const isLocatingUser = ref(false)
+const isLoadingIncidents = ref(false)
 const locateMessage = ref('')
-const liveCount = ref(18)
+const liveCount = ref(0)
 const santaAnaCenter = { lat: 13.9948, lng: -89.5597 }
 
-const initialSantaAnaIncidents = [
-  {
-    id: 1,
-    title: 'Colision cerca de Metrocentro Santa Ana',
-    severity: 'Alta',
-    coords: [-89.5609, 13.9928],
-    status: 'Activo'
-  },
-  {
-    id: 2,
-    title: 'Bloqueo en Avenida Independencia Sur',
-    severity: 'Media',
-    coords: [-89.5564, 13.9962],
-    status: 'En revision'
-  },
-  {
-    id: 3,
-    title: 'Accidente en zona de Parque Libertad',
-    severity: 'Alta',
-    coords: [-89.5583, 14.001],
-    status: 'Verificado'
-  }
-]
-
-const incidents = ref(initialSantaAnaIncidents)
+const incidents = ref([])
 
 const visibleIncidents = computed(() => incidents.value.slice(0, 5))
 
 let mapInstance = null
-let markerIndex = 0
-let liveTimer = null
-let pulseTimer = null
 let userMarker = null
 const incidentMarkers = []
-let incidentOrigin = { ...santaAnaCenter }
 
-const severityClass = (severity) => severity.toLowerCase()
+const severityClass = (severity) => ['alta', 'media', 'baja'].includes(String(severity).toLowerCase()) ? String(severity).toLowerCase() : 'media'
+const formatDistance = (distanceKm) => distanceKm < 1 ? `${Math.round(distanceKm * 1000)} m` : `${distanceKm.toFixed(1)} km`
 
 const getIncidentIcon = (severity) =>
   L.divIcon({
     className: 'car-marker-wrapper',
     html: `<div class="car-marker car-marker--${severityClass(
       severity
-    )}" style="width:76px;height:76px;border-radius:50%;border:3px solid rgba(255,255,255,.85);display:grid;place-items:center;box-shadow:0 20px 36px rgba(0,0,0,.45);background:radial-gradient(circle at 30% 25%, #fca5a5, #dc2626 70%);">
+    )}">
       <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
-        <path d="M13 36h38c2.2 0 4 1.8 4 4v7h-5a8 8 0 0 0-16 0H30a8 8 0 0 0-16 0H9v-7c0-2.2 1.8-4 4-4Z" fill="#b91c1c" />
-        <path d="M17 25.5c.6-1.6 2.1-2.7 3.8-2.7h22.4c1.7 0 3.2 1.1 3.8 2.7l2.8 7.5H14.2l2.8-7.5Z" fill="#dc2626" />
+        <path d="M13 36h38c2.2 0 4 1.8 4 4v7h-5a8 8 0 0 0-16 0H30a8 8 0 0 0-16 0H9v-7c0-2.2 1.8-4 4-4Z" fill="currentColor" />
+        <path d="M17 25.5c.6-1.6 2.1-2.7 3.8-2.7h22.4c1.7 0 3.2 1.1 3.8 2.7l2.8 7.5H14.2l2.8-7.5Z" fill="currentColor" />
         <circle cx="22" cy="47" r="5.6" fill="#0f172a" />
         <circle cx="42" cy="47" r="5.6" fill="#0f172a" />
         <rect x="23" y="27" width="8.7" height="4.8" rx="1" fill="#dbeafe" />
         <rect x="32.3" y="27" width="8.7" height="4.8" rx="1" fill="#dbeafe" />
       </svg>
     </div>`,
-    iconSize: [76, 76],
-    iconAnchor: [38, 62],
-    popupAnchor: [0, -54]
+    iconSize: [60, 60],
+    iconAnchor: [30, 50],
+    popupAnchor: [0, -43]
   })
 
 const goBack = () => {
@@ -95,48 +70,13 @@ const addIncidentMarker = (incident) => {
     </div>
   `
 
-  const marker = L.marker([incident.coords[1], incident.coords[0]], {
+  const marker = L.marker([Number(incident.lat), Number(incident.lng)], {
     icon: getIncidentIcon(incident.severity)
   })
     .bindPopup(popupHtml)
     .addTo(mapInstance)
 
   incidentMarkers.push(marker)
-}
-
-const simulateRealtimeIncident = () => {
-  const nextIncidents = [
-    {
-      title: 'Colision menor en tramo cercano',
-      severity: 'Baja',
-      coords: [incidentOrigin.lng - 0.0038, incidentOrigin.lat + 0.0027],
-      status: 'Nuevo'
-    },
-    {
-      title: 'Vehiculo detenido en avenida principal',
-      severity: 'Media',
-      coords: [incidentOrigin.lng + 0.0029, incidentOrigin.lat - 0.0021],
-      status: 'Nuevo'
-    },
-    {
-      title: 'Congestion por choque en retorno',
-      severity: 'Alta',
-      coords: [incidentOrigin.lng + 0.0013, incidentOrigin.lat + 0.0034],
-      status: 'Nuevo'
-    }
-  ]
-
-  const incident = nextIncidents[markerIndex % nextIncidents.length]
-  markerIndex += 1
-
-  const hydratedIncident = {
-    id: Date.now(),
-    ...incident
-  }
-
-  incidents.value = [hydratedIncident, ...incidents.value].slice(0, 8)
-  liveCount.value += 1
-  addIncidentMarker(hydratedIncident)
 }
 
 const locateUser = (centerMap = false) => {
@@ -150,14 +90,14 @@ const locateUser = (centerMap = false) => {
   isLocatingUser.value = true
 
   navigator.geolocation.getCurrentPosition(
-    (position) => {
+    async (position) => {
       if (!mapInstance) {
         isLocatingUser.value = false
         return
       }
 
       const latLng = [position.coords.latitude, position.coords.longitude]
-      incidentOrigin = {
+      const userLocation = {
         lat: position.coords.latitude,
         lng: position.coords.longitude
       }
@@ -176,44 +116,30 @@ const locateUser = (centerMap = false) => {
         .bindPopup('Tu ubicacion actual')
         .addTo(mapInstance)
 
-      if (centerMap) {
-        mapInstance.flyTo(latLng, 15, { duration: 0.9 })
+      if (centerMap) mapInstance.flyTo(latLng, 14, { duration: 0.9 })
+
+      isLoadingIncidents.value = true
+      try {
+        incidents.value = await fetchNearbyReports(userLocation, { radiusKm: 12 })
+        refreshIncidentMarkers()
+        liveCount.value += 1
+        locateMessage.value = incidents.value.length
+          ? `${incidents.value.length} accidente(s) encontrado(s) cerca de ti.`
+          : 'No hay accidentes reportados en un radio de 12 km.'
+      } catch (error) {
+        incidents.value = []
+        refreshIncidentMarkers()
+        locateMessage.value = error.message || 'No se pudieron cargar los accidentes cercanos.'
+      } finally {
+        isLoadingIncidents.value = false
       }
-
-      // Regenera incidentes en zonas cercanas a la posicion actual del usuario.
-      incidents.value = [
-        {
-          id: Date.now() + 1,
-          title: 'Colision reportada a pocas cuadras de tu ubicacion',
-          severity: 'Alta',
-          coords: [incidentOrigin.lng - 0.0024, incidentOrigin.lat + 0.0015],
-          status: 'Activo'
-        },
-        {
-          id: Date.now() + 2,
-          title: 'Bloqueo parcial en via cercana',
-          severity: 'Media',
-          coords: [incidentOrigin.lng + 0.0028, incidentOrigin.lat - 0.0012],
-          status: 'En revision'
-        },
-        {
-          id: Date.now() + 3,
-          title: 'Accidente leve en calle secundaria',
-          severity: 'Baja',
-          coords: [incidentOrigin.lng + 0.0011, incidentOrigin.lat + 0.0022],
-          status: 'Verificado'
-        }
-      ]
-      refreshIncidentMarkers()
-
-      locateMessage.value = 'Ubicacion encontrada. Incidentes actualizados cerca de ti.'
       isLocatingUser.value = false
     },
     (error) => {
       locateMessage.value = error.message || 'No se pudo obtener tu ubicacion.'
       isLocatingUser.value = false
     },
-    { enableHighAccuracy: true, timeout: 10000 }
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
   )
 }
 
@@ -238,22 +164,14 @@ onMounted(() => {
     L.control.zoom({ position: 'topright' }).addTo(mapInstance)
 
     mapReady.value = true
-    refreshIncidentMarkers()
-    locateUser()
+    locateUser(true)
   } catch (error) {
     mapInitError.value = 'No se pudo inicializar el mapa.'
   }
 
-  liveTimer = window.setInterval(simulateRealtimeIncident, 8500)
-  pulseTimer = window.setInterval(() => {
-    liveCount.value += 1
-  }, 12000)
 })
 
 onBeforeUnmount(() => {
-  if (liveTimer) window.clearInterval(liveTimer)
-  if (pulseTimer) window.clearInterval(pulseTimer)
-
   clearIncidentMarkers()
 
   if (userMarker) {
@@ -285,7 +203,7 @@ onBeforeUnmount(() => {
           <strong>{{ incidents.length }}</strong>
         </article>
         <article>
-          <span>Actualizaciones</span>
+          <span>Consultas</span>
           <strong>{{ liveCount }}</strong>
         </article>
         <article>
@@ -299,12 +217,12 @@ onBeforeUnmount(() => {
       </div>
 
       <div v-else class="mini-map-note">
-        El mapa usa OpenStreetMap con Leaflet y agrega nuevos incidentes de forma simulada para que luego conectes tu backend en tiempo real.
+        El mapa muestra accidentes registrados en la base de datos dentro de un radio de 12 km de tu ubicacion.
       </div>
 
       <div class="location-tools">
-        <button type="button" :disabled="isLocatingUser || !mapReady" @click="centerOnUser">
-          {{ isLocatingUser ? 'Ubicando...' : 'Ubicarme en el mapa' }}
+        <button type="button" :disabled="isLocatingUser || isLoadingIncidents || !mapReady" @click="centerOnUser">
+          {{ isLocatingUser || isLoadingIncidents ? 'Buscando accidentes...' : 'Actualizar mi ubicacion' }}
         </button>
         <small v-if="locateMessage">{{ locateMessage }}</small>
       </div>
@@ -318,9 +236,9 @@ onBeforeUnmount(() => {
         <article v-for="incident in visibleIncidents" :key="incident.id" class="incident-item">
           <div>
             <h3>{{ incident.title }}</h3>
-            <p>{{ incident.coords[1].toFixed(4) }}, {{ incident.coords[0].toFixed(4) }}</p>
+            <p>{{ Number(incident.lat).toFixed(4) }}, {{ Number(incident.lng).toFixed(4) }} · {{ formatDistance(incident.distanceKm) }}</p>
           </div>
-          <span :class="`badge badge--${incident.severity.toLowerCase()}`">{{ incident.severity }}</span>
+          <span :class="`badge badge--${severityClass(incident.severity)}`">{{ incident.severity }}</span>
         </article>
       </div>
     </aside>
@@ -566,14 +484,14 @@ h1 {
   color: #67e8f9;
 }
 
-.car-marker-wrapper {
+:global(.car-marker-wrapper) {
   background: transparent;
   border: 0;
 }
 
-.car-marker {
-  width: 76px;
-  height: 76px;
+:global(.car-marker) {
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   border: 3px solid rgba(255, 255, 255, 0.85);
   display: grid;
@@ -581,34 +499,37 @@ h1 {
   box-shadow: 0 20px 36px rgba(0, 0, 0, 0.45);
 }
 
-.car-marker svg {
+:global(.car-marker svg) {
   width: 48px;
   height: 48px;
 }
 
-.car-marker--alta {
+:global(.car-marker--alta) {
   background: radial-gradient(circle at 30% 25%, #fca5a5, #dc2626 70%);
+  color: #b91c1c;
 }
 
-.car-marker--media {
-  background: radial-gradient(circle at 30% 25%, #fca5a5, #dc2626 70%);
+:global(.car-marker--media) {
+  background: radial-gradient(circle at 30% 25%, #fde68a, #d97706 70%);
+  color: #b45309;
 }
 
-.car-marker--baja {
-  background: radial-gradient(circle at 30% 25%, #fca5a5, #dc2626 70%);
+:global(.car-marker--baja) {
+  background: radial-gradient(circle at 30% 25%, #bbf7d0, #16a34a 70%);
+  color: #15803d;
 }
 
-.popup-card {
+:global(.popup-card) {
   display: grid;
   gap: 0.2rem;
   color: #f8fbff;
 }
 
-.popup-card strong {
+:global(.popup-card strong) {
   font-size: 0.95rem;
 }
 
-.popup-card span {
+:global(.popup-card span) {
   font-size: 0.82rem;
   color: #cbdaf0;
 }
