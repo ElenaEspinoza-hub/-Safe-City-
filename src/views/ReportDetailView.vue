@@ -3,24 +3,35 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { getReportById } from '../utils/reportsStore'
+import { fetchReports } from '../utils/reportsStore'
 
 const route = useRoute()
 const router = useRouter()
 
 const mapContainer = ref(null)
+const report = ref(null)
 
 let mapInstance = null
 let reportMarker = null
 
 
-// Obtener reporte por ID
-const report = computed(() => {
-  return getReportById(route.params.id)
-})
+// Cargar reporte por ID
+const loadReport = async () => {
+  try {
+    const reports = await fetchReports(100)
+
+    report.value = reports.find(
+      item => String(item.id) === String(route.params.id)
+    )
+
+  } catch (error) {
+    console.error('Error cargando reporte:', error)
+    report.value = null
+  }
+}
 
 
-// Verificar si tiene ubicación
+// Verificar coordenadas
 const hasCoordinates = computed(() => {
   const lat = Number(report.value?.lat)
   const lng = Number(report.value?.lng)
@@ -56,7 +67,7 @@ const categoryLabel = computed(() => {
 })
 
 
-// Color del marcador según gravedad
+// Color del marcador
 const markerColor = computed(() => {
 
   if (report.value?.severity === 'alta') {
@@ -75,22 +86,21 @@ const markerColor = computed(() => {
 })
 
 
-// Coordenadas
+// Obtener coordenadas
 const getCoordinates = () => {
 
   const lat = Number(report.value?.lat)
   const lng = Number(report.value?.lng)
 
-  if (
-    Number.isFinite(lat) &&
-    Number.isFinite(lng)
-  ) {
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
     return [lat, lng]
   }
 
   return null
 }
-// Crear mapa con Leaflet
+
+
+// Crear mapa
 const renderMap = () => {
 
   if (!mapContainer.value || !hasCoordinates.value) {
@@ -100,12 +110,9 @@ const renderMap = () => {
 
   const coordinates = getCoordinates()
 
-  if (!coordinates) {
-    return
-  }
+  if (!coordinates) return
 
 
-  // Crear mapa si todavía no existe
   if (!mapInstance) {
 
     mapInstance = L.map(mapContainer.value, {
@@ -117,8 +124,7 @@ const renderMap = () => {
     L.tileLayer(
       'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
       {
-        attribution: '&copy; OpenStreetMap contributors',
-        maxZoom: 19
+        attribution: '&copy; OpenStreetMap contributors'
       }
     ).addTo(mapInstance)
 
@@ -130,16 +136,11 @@ const renderMap = () => {
   }
 
 
-  // Quitar marcador anterior
   if (reportMarker) {
-
     reportMarker.remove()
-    reportMarker = null
-
   }
 
 
-  // Crear marcador del accidente
   reportMarker = L.circleMarker(
     coordinates,
     {
@@ -165,78 +166,56 @@ const renderMap = () => {
 }
 
 
-
-// Actualizar cuando cambia el reporte
+// Recargar cuando cambia el ID
 watch(
-  () => report.value?.id,
+  () => route.params.id,
+  async () => {
 
-  () => {
+    await loadReport()
 
     if (reportMarker) {
-
       reportMarker.remove()
       reportMarker = null
-
     }
 
 
     if (mapInstance) {
-
       mapInstance.remove()
       mapInstance = null
-
     }
 
 
     renderMap()
 
   },
-
   {
     immediate: true
   }
-
 )
 
 
-
 onMounted(() => {
-
   renderMap()
-
 })
 
 
-
-// Limpiar mapa al salir
 onBeforeUnmount(() => {
 
-
   if (reportMarker) {
-
     reportMarker.remove()
-    reportMarker = null
-
   }
 
 
   if (mapInstance) {
-
     mapInstance.remove()
-    mapInstance = null
-
   }
-
 
 })
 
 
-
-// Regresar a inicio
+// Volver al inicio
 const goBack = () => {
-
   router.push('/')
-
 }
 
 </script>
@@ -251,15 +230,11 @@ const goBack = () => {
         type="button"
         @click="goBack"
       >
-        Volver al inicio
+        ← Volver al inicio
       </button>
 
 
-      <!-- Foto del accidente -->
-      <div
-        v-if="report.photoDataUrl"
-        class="photo-wrap"
-      >
+      <div v-if="report.photoDataUrl" class="photo-wrap">
 
         <img
           :src="report.photoDataUrl"
@@ -267,7 +242,6 @@ const goBack = () => {
         />
 
       </div>
-
 
 
       <div class="detail-content">
@@ -327,7 +301,7 @@ const goBack = () => {
 
             <strong>
               {{
-                report.lat && report.lng
+                hasCoordinates
                 ? `${report.lat}, ${report.lng}`
                 : 'Sin ubicación'
               }}
@@ -340,7 +314,7 @@ const goBack = () => {
           <article>
 
             <span>
-              Fecha del reporte
+              Fecha
             </span>
 
             <strong>
@@ -358,9 +332,7 @@ const goBack = () => {
 
 
 
-
         <section class="map-block">
-
 
           <div class="map-block__head">
 
@@ -368,11 +340,9 @@ const goBack = () => {
               Mapa del accidente
             </h2>
 
-
             <p>
-              Ubicación aproximada donde fue registrado el incidente.
+              Ubicación registrada del incidente.
             </p>
-
 
           </div>
 
@@ -382,8 +352,7 @@ const goBack = () => {
             v-if="hasCoordinates"
             ref="mapContainer"
             class="map-canvas"
-          >
-          </div>
+          ></div>
 
 
 
@@ -400,7 +369,6 @@ const goBack = () => {
         </section>
 
 
-
       </div>
 
 
@@ -411,13 +379,12 @@ const goBack = () => {
 
 
 
-
   <main
     v-else
     class="detail-page"
   >
 
-    <section class="detail-card">
+    <section class="detail-card error-card">
 
       <p class="eyebrow">
         Reporte no encontrado
@@ -447,25 +414,23 @@ const goBack = () => {
 </template>
 
 
-
 <style scoped>
 
 :global(body){
-
   margin:0;
-  font-family:'Segoe UI', sans-serif;
+  font-family:'Poppins','Segoe UI',sans-serif;
   background:#f1f5f9;
-
 }
-
 
 
 .detail-page{
 
   min-height:100vh;
-  display:grid;
-  place-items:center;
+  display:flex;
+  justify-content:center;
+  align-items:center;
   padding:2rem;
+
   background:
   linear-gradient(
     135deg,
@@ -476,51 +441,61 @@ const goBack = () => {
 }
 
 
-
 .detail-card{
 
   width:min(100%,900px);
   background:white;
+
   border-radius:1.5rem;
-  padding:1.5rem;
+
+  padding:1.8rem;
+
   border:1px solid #dbeafe;
+
   box-shadow:
   0 20px 45px rgba(37,99,235,.15);
 
 }
 
 
-
 .back-link{
 
   border:none;
   background:none;
+
   color:#2563eb;
+
   font-weight:700;
+
   cursor:pointer;
+
   margin-bottom:1rem;
 
 }
 
 
-
 .photo-wrap img{
 
   width:100%;
-  max-height:350px;
+
+  height:350px;
+
   object-fit:cover;
+
   border-radius:1rem;
 
 }
-
-
-
 .eyebrow{
 
   color:#2563eb;
+
   font-weight:800;
+
   text-transform:uppercase;
-  letter-spacing:.15em;
+
+  letter-spacing:.12em;
+
+  margin-bottom:.8rem;
 
 }
 
@@ -530,6 +505,10 @@ h1{
 
   color:#123269;
 
+  font-size:2rem;
+
+  margin:.5rem 0;
+
 }
 
 
@@ -537,7 +516,10 @@ h1{
 .description{
 
   color:#475569;
+
   line-height:1.7;
+
+  font-size:1rem;
 
 }
 
@@ -546,8 +528,11 @@ h1{
 .meta-grid{
 
   display:grid;
+
   grid-template-columns:repeat(2,1fr);
+
   gap:1rem;
+
   margin-top:1.5rem;
 
 }
@@ -557,10 +542,17 @@ h1{
 .meta-grid article{
 
   background:#f8fbff;
+
   border:1px solid #dbeafe;
+
   border-radius:1rem;
+
   padding:1rem;
-  display:grid;
+
+  display:flex;
+
+  flex-direction:column;
+
   gap:.4rem;
 
 }
@@ -570,7 +562,11 @@ h1{
 .meta-grid span{
 
   color:#64748b;
+
   font-size:.8rem;
+
+  font-weight:700;
+
   text-transform:uppercase;
 
 }
@@ -588,16 +584,22 @@ h1{
 .map-block{
 
   margin-top:2rem;
+
   padding:1rem;
+
   border-radius:1rem;
+
   background:#f8fbff;
+
   border:1px solid #dbeafe;
 
 }
 
 
 
-.map-block h2{
+.map-block__head h2{
+
+  margin:0;
 
   color:#123269;
 
@@ -605,7 +607,7 @@ h1{
 
 
 
-.map-block p{
+.map-block__head p{
 
   color:#64748b;
 
@@ -615,9 +617,14 @@ h1{
 
 .map-canvas{
 
-  height:300px;
+  width:100%;
+
+  height:320px;
+
   margin-top:1rem;
+
   border-radius:1rem;
+
   overflow:hidden;
 
 }
@@ -627,17 +634,55 @@ h1{
 .map-placeholder{
 
   height:220px;
+
+  margin-top:1rem;
+
   display:grid;
+
   place-items:center;
-  color:#64748b;
-  border:1px dashed #94a3b8;
+
   border-radius:1rem;
+
+  border:1px dashed #94a3b8;
+
+  color:#64748b;
+
+}
+
+
+
+.error-card{
+
+  text-align:center;
+
+}
+
+
+
+.error-card h1{
+
+  margin-bottom:1.5rem;
 
 }
 
 
 
 @media(max-width:700px){
+
+
+  .detail-page{
+
+    padding:1rem;
+
+  }
+
+
+  .detail-card{
+
+    padding:1rem;
+
+  }
+
 
   .meta-grid{
 
@@ -646,11 +691,26 @@ h1{
   }
 
 
-  .detail-page{
+  .photo-wrap img{
 
-    padding:1rem;
+    height:230px;
 
   }
+
+
+  h1{
+
+    font-size:1.6rem;
+
+  }
+
+
+  .map-canvas{
+
+    height:250px;
+
+  }
+
 
 }
 
