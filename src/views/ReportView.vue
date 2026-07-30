@@ -314,6 +314,7 @@ onUnmounted(() => {
   <main class="report-page">
     <section class="hero-panel">
       <div class="hero-panel__content">
+        <button class="back-link" type="button" @click="goBack" style="font-size: 20px; text-decoration: none;">Volver al inicio</button>
         <img class="brand-logo" :src="logoImage" alt="Logo Safe City" />
         <p class="eyebrow">Reporte rapido con ubicacion</p>
         <h1>Registra un accidente con una captura precisa del lugar</h1>
@@ -336,7 +337,6 @@ onUnmounted(() => {
           </article>
         </div>
 
-        <button class="back-link" type="button" @click="goBack">Volver al inicio</button>
       </div>
     </section>
 
@@ -597,12 +597,13 @@ h1 {
 }
 
 .back-link {
+  border-radius: 10px;
   width: fit-content;
   border: none;
-  background: transparent;
-  color: #1e40af;
+  background: #1d4ed8;
+  color: white;
   font-weight: 700;
-  padding: 0;
+  padding: 10px;
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 0.2em;

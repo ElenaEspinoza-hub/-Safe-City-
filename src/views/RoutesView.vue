@@ -212,6 +212,7 @@ onBeforeUnmount(() => {
   <main class="routes-page">
     <aside class="routes-panel">
       <div class="brand-block">
+         <button class="back-link" type="button" @click="goBack" style="font-size: 15px; text-decoration: none;">Volver al inicio</button>
         <p class="eyebrow">Rutas seguras en tiempo real</p>
         <h1>Mapa operativo de accidentes</h1>
         <p class="lead">
@@ -578,6 +579,18 @@ h1 {
   box-shadow: 0 10px 24px rgba(2, 10, 24, 0.35);
 }
 
+.back-link {
+  border-radius: 10px;
+  width: fit-content;
+  border: none;
+  background: #16254d;
+  color: white;
+  font-weight: 700;
+  padding: 10px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
 :deep(.leaflet-popup-tip) {
   background: #10233f;
 }
