@@ -3,6 +3,7 @@ import { computed, nextTick, onUnmounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import logoImage from '../assets/logo.png'
 import { addReport } from '../utils/reportsStore'
+import { insforge } from '../utils/insforgeClient'
 
 const router = useRouter()
 
@@ -10,8 +11,10 @@ const locationState = ref('Pendiente')
 const locationError = ref('')
 const isLocating = ref(false)
 const isSaving = ref(false)
+const isReviewingImage = ref(false)
 const savedMessage = ref('')
 const cameraError = ref('')
+const imageReviewMessage = ref('')
 const isStartingCamera = ref(false)
 const isCameraOpen = ref(false)
 const capturedPhoto = ref('')
@@ -53,8 +56,10 @@ const formErrors = computed(() => {
   const errors = {}
 
   if (!form.title.trim()) errors.title = 'Agrega un titulo corto.'
+  else if (form.title.trim().length > 45) errors.title = 'El titulo permite un maximo de 45 caracteres.'
   if (!form.description.trim()) errors.description = 'Describe lo que paso.'
-  if (form.description.trim().length < 20) errors.description = 'Explica con mas detalle.'
+  else if (form.description.trim().length < 20) errors.description = 'Explica con mas detalle.'
+  else if (form.description.trim().length > 150) errors.description = 'La descripcion permite un maximo de 150 caracteres.'
   if (form.contact && !isValidEmailOrPhone(form.contact)) errors.contact = 'Ingresa un contacto valido.'
   if (!form.lat || !form.lng) errors.location = 'Necesitas registrar tu ubicacion.'
   if (!form.consent) errors.consent = 'Debes confirmar que la informacion es correcta.'
@@ -195,7 +200,78 @@ const takePhoto = () => {
 const retakePhoto = async () => {
   capturedPhoto.value = ''
   form.photoDataUrl = ''
+  imageReviewMessage.value = ''
   await startCamera()
+}
+
+const pixelateImage = (dataUrl) => new Promise((resolve, reject) => {
+  const image = new Image()
+  image.onload = () => {
+    const canvas = document.createElement('canvas')
+    canvas.width = image.naturalWidth
+    canvas.height = image.naturalHeight
+    const context = canvas.getContext('2d')
+
+    if (!context) {
+      reject(new Error('No se pudo proteger la fotografía.'))
+      return
+    }
+
+    const pixelSize = Math.max(12, Math.round(Math.min(canvas.width, canvas.height) / 38))
+    const reducedWidth = Math.max(1, Math.floor(canvas.width / pixelSize))
+    const reducedHeight = Math.max(1, Math.floor(canvas.height / pixelSize))
+    const reducedCanvas = document.createElement('canvas')
+    reducedCanvas.width = reducedWidth
+    reducedCanvas.height = reducedHeight
+    const reducedContext = reducedCanvas.getContext('2d')
+
+    if (!reducedContext) {
+      reject(new Error('No se pudo proteger la fotografía.'))
+      return
+    }
+
+    reducedContext.drawImage(image, 0, 0, reducedWidth, reducedHeight)
+    context.imageSmoothingEnabled = false
+    context.drawImage(reducedCanvas, 0, 0, reducedWidth, reducedHeight, 0, 0, canvas.width, canvas.height)
+    resolve(canvas.toDataURL('image/jpeg', 0.85))
+  }
+  image.onerror = () => reject(new Error('No se pudo leer la fotografía.'))
+  image.src = dataUrl
+})
+
+const reviewPhoto = async () => {
+  if (!form.photoDataUrl) return
+
+  isReviewingImage.value = true
+  imageReviewMessage.value = 'La IA está revisando la fotografía…'
+
+  try {
+    const { data, error } = await insforge.functions.invoke('review-report-image', {
+      body: {
+        imageDataUrl: form.photoDataUrl,
+        title: form.title.trim(),
+        category: form.category,
+        description: form.description.trim()
+      }
+    })
+    const review = data?.data ?? data
+
+    if (error) throw error
+    if (!review?.matchesReport) {
+      throw new Error(review?.reason || 'La fotografía no parece corresponder al accidente descrito. Toma otra foto para enviar el reporte.')
+    }
+
+    if (review.isGraphic) {
+      const protectedPhoto = await pixelateImage(form.photoDataUrl)
+      capturedPhoto.value = protectedPhoto
+      form.photoDataUrl = protectedPhoto
+      imageReviewMessage.value = 'La fotografía contenía material sensible y fue pixelada para proteger a los usuarios.'
+    } else {
+      imageReviewMessage.value = 'Fotografía verificada por la IA.'
+    }
+  } finally {
+    isReviewingImage.value = false
+  }
 }
 
 const goBack = () => {
@@ -204,12 +280,14 @@ const goBack = () => {
 
 const submitReport = async () => {
   savedMessage.value = ''
+  imageReviewMessage.value = ''
 
   if (!canSubmit.value) return
 
   isSaving.value = true
 
   try {
+    await reviewPhoto()
     await addReport({
       ...form,
       title: form.title.trim(),
@@ -275,7 +353,7 @@ onUnmounted(() => {
         <div class="grid-2">
           <label>
             Titulo del incidente
-            <input v-model.trim="form.title" type="text" placeholder="Ej. choque en avenida principal" />
+            <input v-model.trim="form.title" type="text" maxlength="45" placeholder="Ej. choque en avenida principal" />
             <small v-if="formErrors.title" class="error">{{ formErrors.title }}</small>
           </label>
 
@@ -318,6 +396,7 @@ onUnmounted(() => {
           <textarea
             v-model.trim="form.description"
             rows="5"
+            maxlength="150"
             placeholder="Cuenta que sucedio, cuantos vehiculos participaron y si hay heridos..."
           />
           <small v-if="formErrors.description" class="error">{{ formErrors.description }}</small>
@@ -372,7 +451,7 @@ onUnmounted(() => {
             </div>
 
             <div class="camera-actions">
-              <button v-if="!isCameraOpen" class="capture-btn" type="button" :disabled="isStartingCamera" @click="startCamera">
+            <button v-if="!isCameraOpen" class="capture-btn" type="button" :disabled="isStartingCamera || isSaving" @click="startCamera">
                 {{ isStartingCamera ? 'Abriendo camara...' : 'Abrir camara' }}
               </button>
               <button v-else class="secondary-btn" type="button" @click="stopCamera">Cerrar camara</button>
@@ -386,10 +465,11 @@ onUnmounted(() => {
 
           <div v-else-if="capturedPhoto" class="photo-result">
             <img :src="capturedPhoto" alt="Fotografia capturada para el reporte" />
-            <button class="secondary-btn" type="button" @click="retakePhoto">Tomar otra foto</button>
+            <button class="secondary-btn" type="button" :disabled="isSaving" @click="retakePhoto">Tomar otra foto</button>
           </div>
 
           <small v-if="cameraError" class="error">{{ cameraError }}</small>
+          <small v-if="imageReviewMessage" :class="imageReviewMessage.includes('pixelada') ? 'review-warning' : 'review-message'">{{ imageReviewMessage }}</small>
           <canvas ref="cameraCanvas" class="camera-canvas"></canvas>
         </div>
 
@@ -404,7 +484,7 @@ onUnmounted(() => {
         <div class="actions-row">
           <button class="secondary-btn" type="button" @click="goBack">Cancelar</button>
           <button class="primary-btn" type="submit" :disabled="isSaving || !canSubmit">
-            {{ isSaving ? 'Registrando...' : 'Registrar reporte' }}
+            {{ isReviewingImage ? 'Revisando fotografía...' : isSaving ? 'Registrando...' : 'Registrar reporte' }}
           </button>
         </div>
       </form>
@@ -623,6 +703,21 @@ textarea {
   color: #b91c1c;
   font-size: 0.82rem;
   font-weight: 500;
+}
+
+.review-message,
+.review-warning {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.review-message {
+  color: #166534;
+}
+
+.review-warning {
+  color: #a16207;
 }
 
 .success {

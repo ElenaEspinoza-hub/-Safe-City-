@@ -135,7 +135,7 @@ onUnmounted(() => {
           <RouterLink to="/mapa" class="nav-link">Rutas</RouterLink>
           <button class="nav-link" type="button" @click="closeMenu(); openProfile()">Perfil</button>
           <RouterLink to="/guia" class="nav-link">Guia</RouterLink>
-          <a class="nav-link" href="#noticias">Noticias</a>
+          <RouterLink to="/noticias" class="nav-link">Noticias</RouterLink>
         </nav>
 
         <div v-if="!authLoading" class="auth-actions auth-actions--desktop">
@@ -162,7 +162,7 @@ onUnmounted(() => {
         <RouterLink to="/mapa" class="nav-link" @click="closeMenu">Rutas</RouterLink>
         <button class="nav-link" type="button" @click="closeMenu(); openProfile()">Perfil</button>
         <RouterLink to="/guia" class="nav-link" @click="closeMenu">Guia</RouterLink>
-        <a class="nav-link" href="#noticias" @click="closeMenu">Noticias</a>
+        <RouterLink to="/noticias" class="nav-link" @click="closeMenu">Noticias</RouterLink>
         <div v-if="!authLoading" class="auth-actions auth-actions--mobile">
           <button v-if="authUser" type="button" class="btn-auth btn-auth--solid" :disabled="isSigningOut" @click="handleSignOut">
             {{ isSigningOut ? 'Cerrando...' : 'Cerrar sesion' }}
@@ -241,6 +241,10 @@ onUnmounted(() => {
 
       <div v-else class="recent-empty">
         <p>No hay accidentes reportados.</p>
+      </div>
+
+      <div class="news-section__action">
+        <RouterLink to="/noticias" class="view-all-news">Ver todos los accidentes</RouterLink>
       </div>
     </section>
 
@@ -668,6 +672,25 @@ onUnmounted(() => {
   cursor: pointer;
   margin-top: auto;
   align-self: flex-start;
+}
+
+.news-section__action {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.6rem;
+}
+
+.view-all-news {
+  border-radius: 0.75rem;
+  background: #1d4ed8;
+  color: #fff;
+  min-height: 44px;
+  padding: 0 1rem;
+  font-weight: 700;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .news-section {

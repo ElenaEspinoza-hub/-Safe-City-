@@ -72,6 +72,49 @@ export const fetchReports = async (limit = 10) => {
   return reports
 }
 
+const REPORT_SEARCH_MAX_LENGTH = 70
+
+// La búsqueda se limita a caracteres que no alteran la sintaxis de filtros de PostgREST.
+// Así el texto introducido por la persona usuaria nunca se interpola como un operador.
+const sanitizeReportSearch = (value) => String(value || '')
+  .normalize('NFKC')
+  .replace(/[^\p{L}\p{N}\s-]/gu, '')
+  .trim()
+  .slice(0, REPORT_SEARCH_MAX_LENGTH)
+
+export const fetchReportsPage = async ({ offset = 0, limit = 10, search = '' } = {}) => {
+  const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 10)
+  const safeOffset = Math.max(Number(offset) || 0, 0)
+  const safeSearch = sanitizeReportSearch(search)
+  const publicFields = 'id,title,category,severity,description,lat,lng,photo_data_url,created_at'
+  const query = new URLSearchParams({
+    select: publicFields,
+    order: 'created_at.desc',
+    offset: String(safeOffset),
+    // Se solicita un registro adicional solo para determinar si debe mostrarse "Ver más".
+    limit: String(safeLimit + 1)
+  })
+
+  if (safeSearch) {
+    query.set('or', `(title.ilike.*${safeSearch}*,category.ilike.*${safeSearch}*)`)
+  }
+
+  const response = await fetch(`${REPORTS_API_URL}?${query.toString()}`, { headers: getHeaders() })
+
+  if (!response.ok) {
+    throw new Error('No se pudieron cargar los reportes desde la base de datos.')
+  }
+
+  const pageWithExtra = (await response.json()).map(normalizeReport)
+  const reports = pageWithExtra.slice(0, safeLimit)
+  saveCachedReports(reports)
+
+  return {
+    reports,
+    hasMore: pageWithExtra.length > safeLimit
+  }
+}
+
 const EARTH_RADIUS_KM = 6371
 
 const toRadians = (value) => (value * Math.PI) / 180

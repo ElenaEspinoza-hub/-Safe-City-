@@ -74,7 +74,7 @@ const submitLogin = async () => {
         <label class="remember-row"><input v-model="form.remember" type="checkbox" /><span>Recordar sesion</span></label>
         <p v-if="submitError" class="submit-error">{{ submitError }}</p>
         <button class="primary" type="submit" :disabled="isSubmitting">{{ isSubmitting ? 'Ingresando...' : 'Entrar' }}</button>
-      </form>
+      </form> 
 
       <div class="links-row"><button type="button" class="text-link" @click="goToRegister">Crear cuenta</button><button type="button" class="text-link" @click="goToAuth">Volver</button></div>
     </section>

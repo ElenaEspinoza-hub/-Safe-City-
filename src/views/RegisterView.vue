@@ -115,8 +115,8 @@ const verifyEmail = async () => {
 
 <template>
   <main class="auth-shell">
-    <section class="auth-box" aria-label="Registro en Safe City">
-      <img class="logo" :src="logoImage" alt="Logo Safe City" />
+    <section class="auth-box" aria-label="Registro">
+      <img class="logo" :src="logoImage" alt="Logotipo de la aplicación" />
       <template v-if="!awaitingVerification">
         <h1>Crear cuenta</h1><p class="subtitle">Unete para reportar accidentes y mejorar la seguridad de la ciudad.</p>
         <form class="form" @submit.prevent="submitRegister">
