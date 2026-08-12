@@ -186,10 +186,10 @@ export const addReport = async (report) => {
     created_at: normalized.createdAt
   }
 
-  const response = await fetch(REPORTS_API_URL, {
+  const response = await fetch(`${REPORTS_API_URL}?select=id`, {
     method: 'POST',
-    // No solicitamos la fila completa al guardar: el contacto no debe volver al navegador.
-    headers: { ...getHeaders(true), Prefer: 'return=minimal' },
+    // Solo se devuelve el id: no exponemos el contacto al completar la foto.
+    headers: { ...getHeaders(true), Prefer: 'return=representation' },
     body: JSON.stringify(payload)
   })
 
@@ -200,9 +200,31 @@ export const addReport = async (report) => {
 
   const savedReports = await response.json().catch(() => [])
   const [savedReport] = savedReports
-  const result = normalizeReport(savedReport || normalized)
+  // La respuesta solo contiene id; se conservan los datos locales para que la
+  // cache no quede incompleta mientras Supabase termina de indexar la fila.
+  const result = normalizeReport({ ...normalized, ...(savedReport || {}) })
   cacheReport(result)
   return result
+}
+
+// La captura original nunca se guarda. Esta actualizacion agrega la version
+// protegida despues de que terminen la deteccion local y la revision de IA.
+export const updateReportPhoto = async (id, photoDataUrl) => {
+  if (!id) throw new Error('No se recibio el identificador del reporte para adjuntar la fotografia.')
+
+  const response = await fetch(`${REPORTS_API_URL}?id=eq.${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { ...getHeaders(true), Prefer: 'return=minimal' },
+    body: JSON.stringify({ photo_data_url: photoDataUrl })
+  })
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null)
+    throw new Error(errorBody?.message || 'No se pudo adjuntar la fotografia procesada.')
+  }
+
+  const cached = getCachedReports().find((report) => String(report.id) === String(id))
+  if (cached) cacheReport({ ...cached, photoDataUrl })
 }
 
 export const getReportById = (id) => getCachedReports().find((report) => report.id === id) || null

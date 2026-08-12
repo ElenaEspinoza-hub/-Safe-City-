@@ -9,6 +9,7 @@ const corsHeaders = {
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 const MAX_TEXT_LENGTH = 500
+const AI_TIMEOUT_MS = 12_000
 
 const response = (body: Record<string, unknown>, status = 200) => new Response(JSON.stringify(body), { status, headers: corsHeaders })
 
@@ -46,6 +47,10 @@ export default async function reviewReportImage(req: Request): Promise<Response>
 
     const prompt = `Evalúa la imagen de un reporte ciudadano de tránsito. Compárala con el título, categoría y descripción. Considera que puede ser evidencia de una colisión, atropello, caída, bloqueo vial u otro incidente de seguridad vial. Devuelve SOLO JSON con este formato exacto: {"matchesReport":boolean,"isGraphic":boolean,"reason":"explicación breve en español"}. matchesReport debe ser true solo si la imagen muestra un accidente/incidente vial o es evidencia claramente coherente con el texto. isGraphic debe ser true únicamente si se ve sangre abundante, heridas severas, cadáveres o contenido visual que pueda afectar a personas sensibles. No describas detalles gráficos.\n\nTítulo: ${String(title || '').slice(0, MAX_TEXT_LENGTH)}\nCategoría: ${String(category || '').slice(0, MAX_TEXT_LENGTH)}\nDescripción: ${String(description || '').slice(0, MAX_TEXT_LENGTH)}`
 
+    // La funcion debe fallar rapido: el reporte no depende de esta respuesta y
+    // nunca conviene dejar una peticion abierta hasta agotar el worker.
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)
     const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -60,8 +65,9 @@ export default async function reviewReportImage(req: Request): Promise<Response>
           { type: 'text', text: prompt },
           { type: 'image_url', image_url: { url: imageDataUrl } }
         ] }]
-      })
-    })
+      }),
+      signal: controller.signal
+    }).finally(() => clearTimeout(timeout))
 
     if (!aiResponse.ok) {
       console.error('OpenRouter image review failed:', aiResponse.status)
