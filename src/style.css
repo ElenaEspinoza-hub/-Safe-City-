@@ -1,0 +1,7 @@
+/* Tipografia institucional uniforme para toda la aplicacion. */
+html,
+body,
+#app,
+#app * {
+  font-family: "Times New Roman", Times, serif !important;
+}
