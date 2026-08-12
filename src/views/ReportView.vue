@@ -3,9 +3,9 @@ import { computed, nextTick, onUnmounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import logoImage from '../assets/logo.png'
 import { addReport, updateReportPhoto } from '../utils/reportsStore'
-import { insforge } from '../utils/insforgeClient'
 
 const router = useRouter()
+const IMAGE_REVIEW_URL = (import.meta.env.VITE_IMAGE_REVIEW_URL || '').trim()
 
 const locationState = ref('Pendiente')
 const locationError = ref('')
@@ -303,16 +303,19 @@ const processPhoto = async (originalPhoto, processingId) => {
   try {
     const faceCensoredPhoto = await censorFaces(originalPhoto)
     // La IA recibe la version con rostros ya ocultos, no la captura original.
-    const reviewResult = await insforge.functions.invoke('review-report-image', {
-      body: {
+    if (!IMAGE_REVIEW_URL) throw new Error('Falta configurar VITE_IMAGE_REVIEW_URL para revisar la fotografia.')
+    const reviewResponse = await fetch(IMAGE_REVIEW_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         imageDataUrl: faceCensoredPhoto,
         title: form.title.trim(),
         category: form.category,
         description: form.description.trim()
-      }
+      })
     })
-    if (reviewResult.error) throw reviewResult.error
-    const review = reviewResult.data?.data ?? reviewResult.data
+    const review = await reviewResponse.json().catch(() => null)
+    if (!reviewResponse.ok) throw new Error(review?.error || 'No se pudo revisar la fotografia.')
     if (!review || typeof review.isGraphic !== 'boolean') throw new Error('La IA no devolvio una revision valida.')
 
     const safePhoto = review.isGraphic ? await pixelateImage(faceCensoredPhoto) : faceCensoredPhoto
