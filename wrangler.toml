@@ -1,4 +1,4 @@
-name = "safecity-report-image-review"
+
 main = "workers/report-image-review.js"
 compatibility_date = "2026-08-12"
 
