@@ -39,6 +39,11 @@ export default {
       'Access-Control-Allow-Headers': 'Content-Type',
       'Vary': 'Origin'
     } })
+    if (request.method === 'GET') return json({
+      service: 'SafeCity image review API',
+      status: 'ok',
+      message: 'El servicio esta activo. Envia solicitudes POST para revisar fotografias.'
+    }, 200, origin)
     if (request.method !== 'POST') return json({ error: 'Metodo no permitido.' }, 405, origin)
     if (!env.OPENAI_API_KEY) return json({ error: 'El servicio de revision no esta configurado.' }, 503, origin)
 
