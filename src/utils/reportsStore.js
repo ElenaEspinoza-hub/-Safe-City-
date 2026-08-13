@@ -1,6 +1,7 @@
 const STORAGE_KEY = 'safecity-reports'
 const REPORTS_API_URL = import.meta.env.VITE_SUPABASE_NEWS_URL || 'https://faczibrwcktjypkxxvgo.supabase.co/rest/v1/safecity-noticias'
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+const isSecretBrowserKey = (value) => String(value || '').startsWith('sb_secret_')
 
 const normalizeReport = (report) => ({
   id: report.id || `report-${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -38,6 +39,10 @@ const saveCachedReports = (reports) => {
 const getHeaders = (includeJson = false) => {
   if (!SUPABASE_ANON_KEY) {
     throw new Error('Falta configurar VITE_SUPABASE_ANON_KEY para conectar los reportes.')
+  }
+
+  if (isSecretBrowserKey(SUPABASE_ANON_KEY)) {
+    throw new Error('VITE_SUPABASE_ANON_KEY contiene una clave secreta. Usa la clave Publishable/Anon de Supabase, nunca una clave sb_secret_.')
   }
 
   return {

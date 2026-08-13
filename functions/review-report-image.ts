@@ -9,7 +9,7 @@ const corsHeaders = {
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 const MAX_TEXT_LENGTH = 500
-const AI_TIMEOUT_MS = 12_000
+const AI_TIMEOUT_MS = 9_000
 
 const response = (body: Record<string, unknown>, status = 200) => new Response(JSON.stringify(body), { status, headers: corsHeaders })
 

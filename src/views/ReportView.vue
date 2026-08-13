@@ -2,10 +2,11 @@
 import { computed, nextTick, onUnmounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import logoImage from '../assets/logo.png'
-import { addReport, updateReportPhoto } from '../utils/reportsStore'
+import { addReport } from '../utils/reportsStore'
+import { insforge } from '../utils/insforgeClient'
 
 const router = useRouter()
-const IMAGE_REVIEW_URL = (import.meta.env.VITE_IMAGE_REVIEW_URL || '').trim()
+const IMAGE_REVIEW_TIMEOUT_MS = 10_000
 
 const locationState = ref('Pendiente')
 const locationError = ref('')
@@ -21,8 +22,6 @@ const capturedPhoto = ref('')
 const cameraVideo = ref(null)
 const cameraCanvas = ref(null)
 let cameraStream = null
-let photoProcessingPromise = null
-let photoProcessingId = 0
 
 const form = reactive({
   title: '',
@@ -202,9 +201,7 @@ const takePhoto = () => {
   const photo = cameraCanvas.value.toDataURL('image/jpeg', 0.78)
   capturedPhoto.value = photo
   form.photoDataUrl = photo
-  imageReviewMessage.value = 'Protegiendo rostros y revisando la fotografia en segundo plano...'
-  const processingId = ++photoProcessingId
-  photoProcessingPromise = processPhoto(photo, processingId)
+  imageReviewMessage.value = 'La fotografía se revisará antes de enviar el reporte.'
   stopCamera()
 }
 
@@ -212,8 +209,6 @@ const retakePhoto = async () => {
   capturedPhoto.value = ''
   form.photoDataUrl = ''
   imageReviewMessage.value = ''
-  photoProcessingPromise = null
-  photoProcessingId += 1
   await startCamera()
 }
 
@@ -252,112 +247,35 @@ const pixelateImage = (dataUrl) => new Promise((resolve, reject) => {
   image.src = dataUrl
 })
 
-const censorFaces = async (dataUrl) => {
-  const image = new Image()
-  image.src = dataUrl
-  await image.decode()
-
-  const canvas = document.createElement('canvas')
-  canvas.width = image.naturalWidth
-  canvas.height = image.naturalHeight
-  const context = canvas.getContext('2d')
-  if (!context) throw new Error('No se pudo preparar la fotografia para protegerla.')
-  context.drawImage(image, 0, 0)
-
-  // Esta API procesa los rostros en el mismo telefono/navegador. No se envian
-  // coordenadas faciales ni una foto sin censura a Supabase.
-  if (!('FaceDetector' in window)) return pixelateImage(dataUrl)
-
-  let faces
-  try {
-    const detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 20 })
-    faces = await detector.detect(image)
-  } catch (error) {
-    console.warn('La deteccion local de rostros fallo; se aplicara censura total.', error)
-    return pixelateImage(dataUrl)
-  }
-  for (const face of faces) {
-    const { x, y, width, height } = face.boundingBox
-    const padding = Math.max(width, height) * 0.22
-    const left = Math.max(0, Math.floor(x - padding))
-    const top = Math.max(0, Math.floor(y - padding))
-    const right = Math.min(canvas.width, Math.ceil(x + width + padding))
-    const bottom = Math.min(canvas.height, Math.ceil(y + height + padding))
-    const faceWidth = Math.max(1, right - left)
-    const faceHeight = Math.max(1, bottom - top)
-    const reduced = document.createElement('canvas')
-    reduced.width = Math.max(1, Math.floor(faceWidth / 12))
-    reduced.height = Math.max(1, Math.floor(faceHeight / 12))
-    const reducedContext = reduced.getContext('2d')
-    if (!reducedContext) continue
-    reducedContext.drawImage(canvas, left, top, faceWidth, faceHeight, 0, 0, reduced.width, reduced.height)
-    context.imageSmoothingEnabled = false
-    context.drawImage(reduced, 0, 0, reduced.width, reduced.height, left, top, faceWidth, faceHeight)
-  }
-
-  return canvas.toDataURL('image/jpeg', 0.82)
-}
-
-const processPhoto = async (originalPhoto, processingId) => {
-  isReviewingImage.value = true
-  try {
-    const faceCensoredPhoto = await censorFaces(originalPhoto)
-    // La IA recibe la version con rostros ya ocultos, no la captura original.
-    if (!IMAGE_REVIEW_URL) throw new Error('Falta configurar VITE_IMAGE_REVIEW_URL para revisar la fotografia.')
-    const reviewResponse = await fetch(IMAGE_REVIEW_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        imageDataUrl: faceCensoredPhoto,
-        title: form.title.trim(),
-        category: form.category,
-        description: form.description.trim()
-      })
-    })
-    const review = await reviewResponse.json().catch(() => null)
-    if (!reviewResponse.ok) throw new Error(review?.error || 'No se pudo revisar la fotografia.')
-    if (!review || typeof review.isGraphic !== 'boolean') throw new Error('La IA no devolvio una revision valida.')
-
-    const safePhoto = review.isGraphic ? await pixelateImage(faceCensoredPhoto) : faceCensoredPhoto
-    if (processingId === photoProcessingId) {
-      capturedPhoto.value = safePhoto
-      form.photoDataUrl = safePhoto
-      imageReviewMessage.value = review.isGraphic
-        ? 'La escena tenia mucha sangre o material sensible y fue pixelada.'
-        : 'Rostros protegidos y fotografia verificada por la IA.'
-    }
-    return safePhoto
-  } catch (error) {
-    console.error('No se pudo procesar la fotografia:', error)
-    if (processingId === photoProcessingId) {
-      imageReviewMessage.value = 'No se pudo verificar la fotografia; el reporte se enviara sin imagen para proteger la privacidad.'
-    }
-    return ''
-  } finally {
-    if (processingId === photoProcessingId) isReviewingImage.value = false
-  }
-}
-
 const reviewPhoto = async () => {
-  if (!form.photoDataUrl) return
+  if (!form.photoDataUrl) return ''
 
   isReviewingImage.value = true
-  imageReviewMessage.value = 'La IA está revisando la fotografía…'
+  imageReviewMessage.value = 'La IA está revisando la fotografía (máximo 10 segundos)…'
 
   try {
-    const { data, error } = await insforge.functions.invoke('review-report-image', {
-      body: {
-        imageDataUrl: form.photoDataUrl,
-        title: form.title.trim(),
-        category: form.category,
-        description: form.description.trim()
-      }
+    const reviewRequest = insforge.functions.invoke('review-report-image', {
+      body: { imageDataUrl: form.photoDataUrl, title: form.title.trim(), category: form.category, description: form.description.trim() }
     })
+    const timeout = new Promise((resolve) => setTimeout(() => resolve({ timedOut: true }), IMAGE_REVIEW_TIMEOUT_MS))
+    const result = await Promise.race([reviewRequest, timeout])
+
+    if (result?.timedOut) {
+      const protectedPhoto = await pixelateImage(form.photoDataUrl)
+      capturedPhoto.value = protectedPhoto
+      form.photoDataUrl = protectedPhoto
+      imageReviewMessage.value = 'La IA tardó más de 10 segundos; la fotografía fue pixelada y se enviará protegida.'
+      return protectedPhoto
+    }
+
+    const { data, error } = result
     const review = data?.data ?? data
 
     if (error) throw error
     if (!review?.matchesReport) {
-      throw new Error(review?.reason || 'La fotografía no parece corresponder al accidente descrito. Toma otra foto para enviar el reporte.')
+      const mismatchError = new Error(review?.reason || 'La fotografía no parece corresponder al accidente descrito. Toma otra foto para enviar el reporte.')
+      mismatchError.preventReport = true
+      throw mismatchError
     }
 
     if (review.isGraphic) {
@@ -365,9 +283,19 @@ const reviewPhoto = async () => {
       capturedPhoto.value = protectedPhoto
       form.photoDataUrl = protectedPhoto
       imageReviewMessage.value = 'La fotografía contenía material sensible y fue pixelada para proteger a los usuarios.'
+      return protectedPhoto
     } else {
       imageReviewMessage.value = 'Fotografía verificada por la IA.'
+      return form.photoDataUrl
     }
+  } catch (error) {
+    if (error?.preventReport) throw error
+    console.error('No se pudo revisar la fotografía:', error)
+    const protectedPhoto = await pixelateImage(form.photoDataUrl)
+    capturedPhoto.value = protectedPhoto
+    form.photoDataUrl = protectedPhoto
+    imageReviewMessage.value = 'No fue posible completar la revisión; la fotografía fue pixelada y se enviará protegida.'
+    return protectedPhoto
   } finally {
     isReviewingImage.value = false
   }
@@ -386,31 +314,17 @@ const submitReport = async () => {
   isSaving.value = true
 
   try {
-    // No bloqueamos el envio por la IA. La fila se crea sin fotografia y la
-    // version ya censurada se agrega cuando terminen las tareas de fondo.
-    const report = await addReport({
+    const safePhoto = await reviewPhoto()
+    await addReport({
       ...form,
-      photoDataUrl: '',
+      photoDataUrl: safePhoto,
       title: form.title.trim(),
       description: form.description.trim(),
       contact: form.contact.trim(),
       createdAt: new Date().toISOString()
     })
 
-    if (photoProcessingPromise) {
-      void photoProcessingPromise.then(async (safePhoto) => {
-        if (!safePhoto) return
-        try {
-          await updateReportPhoto(report.id, safePhoto)
-        } catch (error) {
-          console.error('No se pudo adjuntar la fotografia segura:', error)
-        }
-      })
-    }
-
-    savedMessage.value = photoProcessingPromise
-      ? 'Reporte enviado. La fotografia segura se adjuntara al terminar la revision.'
-      : 'Reporte registrado correctamente.'
+    savedMessage.value = 'Reporte registrado correctamente.'
     router.push('/')
   } catch (error) {
     savedMessage.value = error.message || 'No se pudo registrar el reporte. Intenta de nuevo.'
