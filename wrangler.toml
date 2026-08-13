@@ -6,4 +6,4 @@ compatibility_date = "2026-08-12"
 # npx wrangler secret put OPENAI_API_KEY
 # Opcional: npx wrangler secret put ALLOWED_ORIGIN
 # Opcional: npx wrangler secret put OPENAI_VISION_MODEL
-name = 'safe-city'
+
