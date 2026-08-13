@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "safecity-report-image-review",
+  "main": "workers/report-image-review.js",
+  "compatibility_date": "2026-08-12"
+  
+
+  // Nunca escribas OPENAI_API_KEY aqui. Crealo con:
+  // npx wrangler secret put OPENAI_API_KEY
+  // Opcional: npx wrangler secret put ALLOWED_ORIGIN
+  // Opcional: npx wrangler secret put OPENAI_VISION_MODEL
+}
