@@ -142,11 +142,12 @@ onMounted(() => {
 .auth-box {
   width: min(100%, 820px);
   border-radius: 1.25rem;
-  background: #ffffff;
+  background: #295bff;
   box-shadow: 0 18px 40px rgba(20, 55, 122, 0.18);
   padding: 1.35rem;
   display: grid;
   gap: 0.9rem;
+
 }
 
 .page-header {
@@ -171,13 +172,13 @@ onMounted(() => {
 h1 {
   margin: 0;
   text-align: left;
-  color: #123269;
+  color: #eff2f8;
 }
 
 .subtitle {
   margin: 0;
   text-align: left;
-  color: #4b5563;
+  color: #d4e6ff;
 }
 
 .profile-shell {
@@ -216,7 +217,7 @@ h1 {
 
 .avatar-block h2 {
   margin: 0 0 0.3rem;
-  color: #123269;
+  color: #011c4d;
 }
 
 .avatar-block p {
@@ -302,7 +303,7 @@ textarea:focus {
 .text-link {
   border: none;
   background: transparent;
-  color: #1d4ed8;
+  color: #f7f8fa;
   font-weight: 600;
   cursor: pointer;
 }

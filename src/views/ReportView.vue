@@ -537,7 +537,7 @@ onUnmounted(() => {
   min-height: 100dvh;
   display: grid;
   grid-template-columns: 0.9fr 1.1fr;
-  background: linear-gradient(135deg, #e5efff 0%, #f6faff 45%, #d7e5ff 100%);
+  background-color: #3165f5;
 }
 
 .hero-panel {
@@ -546,7 +546,7 @@ onUnmounted(() => {
   padding: 3.5rem 2.5rem;
   display: flex;
   align-items: center;
-  border-right: 1px solid #ccdcf4;
+  border-right: 1px solid #eceef1;
 }
 
 .hero-panel::before {

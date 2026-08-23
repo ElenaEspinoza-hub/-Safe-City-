@@ -10,3 +10,4 @@
   // Opcional: npx wrangler secret put ALLOWED_ORIGIN
   // Opcional: npx wrangler secret put OPENAI_VISION_MODEL
 }
+
