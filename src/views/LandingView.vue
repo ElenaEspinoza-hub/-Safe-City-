@@ -136,6 +136,7 @@ onUnmounted(() => {
           <button class="nav-link" type="button" @click="closeMenu(); openProfile()">Perfil</button>
           <RouterLink to="/guia" class="nav-link">Guia</RouterLink>
           <RouterLink to="/noticias" class="nav-link">Noticias</RouterLink>
+          <RouterLink to="/telefonos" class="nav-link">Emergencias</RouterLink>
         </nav>
 
         <div v-if="!authLoading" class="auth-actions auth-actions--desktop">
@@ -163,6 +164,7 @@ onUnmounted(() => {
         <button class="nav-link" type="button" @click="closeMenu(); openProfile()">Perfil</button>
         <RouterLink to="/guia" class="nav-link" @click="closeMenu">Guia</RouterLink>
         <RouterLink to="/noticias" class="nav-link" @click="closeMenu">Noticias</RouterLink>
+        <RouterLink to="/telefonos" class="nav-link" @click="closeMenu">Emergencias</RouterLink>
         <div v-if="!authLoading" class="auth-actions auth-actions--mobile">
           <button v-if="authUser" type="button" class="btn-auth btn-auth--solid" :disabled="isSigningOut" @click="handleSignOut">
             {{ isSigningOut ? 'Cerrando...' : 'Cerrar sesion' }}

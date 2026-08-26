@@ -9,6 +9,7 @@ import ReportDetailView from '../views/ReportDetailView.vue'
 import GuiaView from '../views/GuiaView.vue'
 import PerfilView from '../views/PerfilView.vue'
 import NewsView from '../views/NewsView.vue'
+import TelefonoView from '../views/telefonoView.vue'
 import { initializeAuth } from '../utils/authStore'
 
 const routes = [
@@ -50,6 +51,11 @@ const routes = [
     path: '/noticias',
     name: 'noticias',
     component: NewsView
+  },
+  {
+    path: '/telefonos',
+    name: 'telefonos',
+    component: TelefonoView
   },
   {
     path: '/guia',

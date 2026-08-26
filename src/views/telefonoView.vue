@@ -132,6 +132,14 @@ const featuredItem = computed(() => {
 
 const goToReport = () => router.push('/reportar')
 const goToMap = () => router.push('/mapa')
+const goBack = () => {
+  if (window.history.length > 1) {
+    router.back()
+    return
+  }
+
+  router.push('/')
+}
 const goToLocation = (institution) => {
   // Navega al mapa con el nombre de la institución
   router.push({ name: 'mapa', query: { search: institution } })
@@ -143,6 +151,9 @@ const goToLocation = (institution) => {
     <section class="emergency-shell">
       <!-- Panel izquierdo -->
       <aside class="emergency-intro">
+        <button type="button" class="back-button" @click="goBack">
+          ← Regresar
+        </button>
         <img 
           :src="logoImage" 
           alt="Logo Safe City"
@@ -204,7 +215,7 @@ const goToLocation = (institution) => {
             placeholder="Buscar servicio..."
             class="search-box__input"
           />
-          <span class="search-box__icon">🔍</span>
+          <span class="search-box__icon"></span>
         </div>
 
         <!-- Filtros -->
@@ -293,6 +304,23 @@ const goToLocation = (institution) => {
   flex-direction: column;
   border-radius: 2rem;
   box-shadow: 0 20px 60px rgba(220, 38, 38, 0.3);
+}
+
+.back-button {
+  align-self: flex-start;
+  margin: 0 0 1.5rem;
+  padding: 0.55rem 0.9rem;
+  color: white;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.back-button:hover {
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .emergency-intro__logo {
