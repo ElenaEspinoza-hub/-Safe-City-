@@ -9,7 +9,8 @@ const router = useRouter()
 // La revisión no debe retrasar el envío del reporte. Si no termina pronto,
 // se conserva la foto original para la base de datos y solo se protege la
 // vista previa de esta pantalla.
-const IMAGE_REVIEW_TIMEOUT_MS = 3_000
+const IMAGE_REVIEW_TIMEOUT_MS = 6_000
+const RED_COLOR_REVIEW_TIMEOUT_MS = 8_000
 
 const locationState = ref('Pendiente')
 const locationError = ref('')
@@ -231,7 +232,8 @@ const pixelateImage = (dataUrl) => new Promise((resolve, reject) => {
       return
     }
 
-    const pixelSize = Math.max(12, Math.round(Math.min(canvas.width, canvas.height) / 38))
+    // Bloques más grandes: se distingue el contexto, pero no los detalles.
+    const pixelSize = Math.max(22, Math.round(Math.min(canvas.width, canvas.height) / 18))
     const reducedWidth = Math.max(1, Math.floor(canvas.width / pixelSize))
     const reducedHeight = Math.max(1, Math.floor(canvas.height / pixelSize))
     const reducedCanvas = document.createElement('canvas')
@@ -258,21 +260,44 @@ const showProtectedPreview = async (message) => {
   imageReviewMessage.value = message
 }
 
+const hasNoticeableRed = (dataUrl) => new Promise((resolve) => {
+  const image = new Image()
+  image.onload = () => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 64
+    canvas.height = 64
+    const context = canvas.getContext('2d', { willReadFrequently: true })
+    if (!context) return resolve(false)
+    context.drawImage(image, 0, 0, canvas.width, canvas.height)
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data
+    let redPixels = 0
+    for (let index = 0; index < pixels.length; index += 4) {
+      const [red, green, blue] = [pixels[index], pixels[index + 1], pixels[index + 2]]
+      if (red > 130 && red > green * 1.45 && red > blue * 1.45) redPixels += 1
+    }
+    resolve(redPixels / (pixels.length / 4) >= 0.04)
+  }
+  image.onerror = () => resolve(false)
+  image.src = dataUrl
+})
+
 const reviewPhoto = async () => {
   if (!originalPhoto.value) return
 
   isReviewingImage.value = true
-  imageReviewMessage.value = 'La IA está revisando la fotografía (máximo 3 segundos)…'
+  const needsRedReview = await hasNoticeableRed(originalPhoto.value)
+  const reviewTimeout = needsRedReview ? RED_COLOR_REVIEW_TIMEOUT_MS : IMAGE_REVIEW_TIMEOUT_MS
+  imageReviewMessage.value = `La IA está revisando la fotografía (máximo ${reviewTimeout / 1000} segundos)…`
 
   try {
     const reviewRequest = insforge.functions.invoke('review-report-image', {
       body: { imageDataUrl: originalPhoto.value, title: form.title.trim(), category: form.category, description: form.description.trim() }
     })
-    const timeout = new Promise((resolve) => setTimeout(() => resolve({ timedOut: true }), IMAGE_REVIEW_TIMEOUT_MS))
+    const timeout = new Promise((resolve) => setTimeout(() => resolve({ timedOut: true }), reviewTimeout))
     const result = await Promise.race([reviewRequest, timeout])
 
     if (result?.timedOut) {
-      await showProtectedPreview('La IA tardó más de 3 segundos; la vista previa se pixeló, pero la foto original se guardará en la base de datos.')
+      await showProtectedPreview(`La IA tardó más de ${reviewTimeout / 1000} segundos; la vista previa se pixeló, pero la foto original se guardará en la base de datos.`)
       return
     }
 
