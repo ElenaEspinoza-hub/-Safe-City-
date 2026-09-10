@@ -8,9 +8,6 @@ import { setAuthenticatedUser } from '../utils/authStore'
 const router = useRouter()
 const isSubmitting = ref(false)
 const submitError = ref('')
-const awaitingVerification = ref(false)
-const verificationCode = ref('')
-const pendingEmail = ref('')
 const form = reactive({ name: '', email: '', phone: '', password: '', confirmPassword: '', terms: false })
 const isValidEmail = (email) => /\S+@\S+\.\S+/.test(email)
 
@@ -77,9 +74,7 @@ const submitRegister = async () => {
     }
 
     if (data?.requireEmailVerification) {
-      pendingEmail.value = form.email
-      awaitingVerification.value = true
-      return
+      throw new Error('La verificación por correo sigue activada en InsForge. Desactívala en Authentication para permitir el registro directo.')
     }
 
     if (data?.user) {
@@ -92,32 +87,12 @@ const submitRegister = async () => {
   }
 }
 
-const verifyEmail = async () => {
-  submitError.value = ''
-  const otp = verificationCode.value.replace(/\s/g, '')
-  if (!/^\d{6}$/.test(otp)) {
-    submitError.value = 'Ingresa el codigo de 6 digitos que recibiste.'
-    return
-  }
-
-  isSubmitting.value = true
-  const { data, error } = await insforge.auth.verifyEmail({ email: pendingEmail.value, otp })
-  isSubmitting.value = false
-
-  if (error || !data?.user) {
-    submitError.value = error?.message || 'No se pudo verificar el correo.'
-    return
-  }
-
-  await finishRegistration(data.user)
-}
 </script>
 
 <template>
   <main class="auth-shell">
     <section class="auth-box" aria-label="Registro">
       <img class="logo" :src="logoImage" alt="Logotipo de la aplicación" />
-      <template v-if="!awaitingVerification">
         <h1>Crear cuenta</h1><p class="subtitle">Unete para reportar accidentes y mejorar la seguridad de la ciudad.</p>
         <form class="form" @submit.prevent="submitRegister">
           <label>Nombre completo<input v-model.trim="form.name" type="text" placeholder="Tu nombre" autocomplete="name" /><small v-if="formErrors.name" class="field-error">{{ formErrors.name }}</small></label>
@@ -129,11 +104,6 @@ const verifyEmail = async () => {
           <p v-if="submitError" class="submit-error">{{ submitError }}</p><button class="primary" type="submit" :disabled="isSubmitting">{{ isSubmitting ? 'Creando cuenta...' : 'Registrarme' }}</button>
         </form>
         <div class="links-row"><button type="button" class="text-link" @click="goToLogin">Ya tengo cuenta</button><button type="button" class="text-link" @click="goToAuth">Volver</button></div>
-      </template>
-      <template v-else>
-        <h1>Verifica tu correo</h1><p class="subtitle">Enviamos un codigo de 6 digitos a {{ pendingEmail }}.</p>
-        <form class="form" @submit.prevent="verifyEmail"><label>Codigo de verificacion<input v-model="verificationCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" /></label><p v-if="submitError" class="submit-error">{{ submitError }}</p><button class="primary" type="submit" :disabled="isSubmitting">{{ isSubmitting ? 'Verificando...' : 'Verificar cuenta' }}</button></form>
-      </template>
     </section>
   </main>
 </template>

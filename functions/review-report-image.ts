@@ -9,7 +9,9 @@ const corsHeaders = {
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 const MAX_TEXT_LENGTH = 500
-const AI_TIMEOUT_MS = 9_000
+// Mantener este límite por debajo del cliente (3 s) evita que una revisión
+// lenta deje la solicitud abierta después de que la interfaz continúe.
+const AI_TIMEOUT_MS = 2_500
 
 const response = (body: Record<string, unknown>, status = 200) => new Response(JSON.stringify(body), { status, headers: corsHeaders })
 

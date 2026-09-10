@@ -12,3 +12,8 @@ test('returns null when InsForge env vars are present', () => {
   const message = getInsforgeConfigError('https://example.insforge.app', 'public-key')
   assert.equal(message, null)
 })
+
+test('rejects an InsForge API key in browser configuration', () => {
+  const message = getInsforgeConfigError('https://example.insforge.app', 'ik_secret_key')
+  assert.match(message, /clave secreta/)
+})

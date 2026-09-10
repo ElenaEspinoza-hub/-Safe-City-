@@ -6,7 +6,10 @@ import { addReport } from '../utils/reportsStore'
 import { insforge } from '../utils/insforgeClient'
 
 const router = useRouter()
-const IMAGE_REVIEW_TIMEOUT_MS = 10_000
+// La revisión no debe retrasar el envío del reporte. Si no termina pronto,
+// se conserva la foto original para la base de datos y solo se protege la
+// vista previa de esta pantalla.
+const IMAGE_REVIEW_TIMEOUT_MS = 3_000
 
 const locationState = ref('Pendiente')
 const locationError = ref('')
@@ -19,6 +22,7 @@ const imageReviewMessage = ref('')
 const isStartingCamera = ref(false)
 const isCameraOpen = ref(false)
 const capturedPhoto = ref('')
+const originalPhoto = ref('')
 const cameraVideo = ref(null)
 const cameraCanvas = ref(null)
 let cameraStream = null
@@ -199,6 +203,7 @@ const takePhoto = () => {
   ctx.drawImage(cameraVideo.value, 0, 0, outputWidth, outputHeight)
 
   const photo = cameraCanvas.value.toDataURL('image/jpeg', 0.78)
+  originalPhoto.value = photo
   capturedPhoto.value = photo
   form.photoDataUrl = photo
   imageReviewMessage.value = 'La fotografía se revisará antes de enviar el reporte.'
@@ -207,6 +212,7 @@ const takePhoto = () => {
 
 const retakePhoto = async () => {
   capturedPhoto.value = ''
+  originalPhoto.value = ''
   form.photoDataUrl = ''
   imageReviewMessage.value = ''
   await startCamera()
@@ -247,25 +253,27 @@ const pixelateImage = (dataUrl) => new Promise((resolve, reject) => {
   image.src = dataUrl
 })
 
+const showProtectedPreview = async (message) => {
+  capturedPhoto.value = await pixelateImage(originalPhoto.value)
+  imageReviewMessage.value = message
+}
+
 const reviewPhoto = async () => {
-  if (!form.photoDataUrl) return ''
+  if (!originalPhoto.value) return
 
   isReviewingImage.value = true
-  imageReviewMessage.value = 'La IA está revisando la fotografía (máximo 10 segundos)…'
+  imageReviewMessage.value = 'La IA está revisando la fotografía (máximo 3 segundos)…'
 
   try {
     const reviewRequest = insforge.functions.invoke('review-report-image', {
-      body: { imageDataUrl: form.photoDataUrl, title: form.title.trim(), category: form.category, description: form.description.trim() }
+      body: { imageDataUrl: originalPhoto.value, title: form.title.trim(), category: form.category, description: form.description.trim() }
     })
     const timeout = new Promise((resolve) => setTimeout(() => resolve({ timedOut: true }), IMAGE_REVIEW_TIMEOUT_MS))
     const result = await Promise.race([reviewRequest, timeout])
 
     if (result?.timedOut) {
-      const protectedPhoto = await pixelateImage(form.photoDataUrl)
-      capturedPhoto.value = protectedPhoto
-      form.photoDataUrl = protectedPhoto
-      imageReviewMessage.value = 'La IA tardó más de 10 segundos; la fotografía fue pixelada y se enviará protegida.'
-      return protectedPhoto
+      await showProtectedPreview('La IA tardó más de 3 segundos; la vista previa se pixeló, pero la foto original se guardará en la base de datos.')
+      return
     }
 
     const { data, error } = result
@@ -279,23 +287,14 @@ const reviewPhoto = async () => {
     }
 
     if (review.isGraphic) {
-      const protectedPhoto = await pixelateImage(form.photoDataUrl)
-      capturedPhoto.value = protectedPhoto
-      form.photoDataUrl = protectedPhoto
-      imageReviewMessage.value = 'La fotografía contenía material sensible y fue pixelada para proteger a los usuarios.'
-      return protectedPhoto
+      await showProtectedPreview('La fotografía contiene material sensible; esta vista previa se pixeló. La foto original se guardará en la base de datos.')
     } else {
       imageReviewMessage.value = 'Fotografía verificada por la IA.'
-      return form.photoDataUrl
     }
   } catch (error) {
     if (error?.preventReport) throw error
     console.error('No se pudo revisar la fotografía:', error)
-    const protectedPhoto = await pixelateImage(form.photoDataUrl)
-    capturedPhoto.value = protectedPhoto
-    form.photoDataUrl = protectedPhoto
-    imageReviewMessage.value = 'No fue posible completar la revisión; la fotografía fue pixelada y se enviará protegida.'
-    return protectedPhoto
+    await showProtectedPreview('No fue posible completar la revisión; la vista previa se pixeló, pero la foto original se guardará en la base de datos.')
   } finally {
     isReviewingImage.value = false
   }
@@ -314,10 +313,11 @@ const submitReport = async () => {
   isSaving.value = true
 
   try {
-    const safePhoto = await reviewPhoto()
+    await reviewPhoto()
     await addReport({
       ...form,
-      photoDataUrl: safePhoto,
+      // Nunca sustituir el archivo de Supabase por la copia pixelada de UI.
+      photoDataUrl: originalPhoto.value,
       title: form.title.trim(),
       description: form.description.trim(),
       contact: form.contact.trim(),

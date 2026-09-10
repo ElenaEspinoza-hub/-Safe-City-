@@ -191,7 +191,6 @@ onMounted(() => {
           <span>o</span>
         </div>
 
-        <p v-if="authError" class="auth-error">{{ authError }}</p>
         <p v-if="isProcessingOAuth" class="auth-info">Validando inicio de sesión...</p>
 
         <button class="primary-btn" type="button" @click="goToLogin">Iniciar sesion</button>
@@ -403,12 +402,6 @@ onMounted(() => {
   margin-top: 0.6rem;
   text-align: center;
   color: #6b7280;
-}
-
-.auth-error {
-  margin: 0;
-  font-size: 0.9rem;
-  color: #b91c1c;
 }
 
 .auth-info {
