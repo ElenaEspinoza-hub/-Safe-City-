@@ -343,6 +343,7 @@ const submitReport = async () => {
       ...form,
       // Nunca sustituir el archivo de Supabase por la copia pixelada de UI.
       photoDataUrl: originalPhoto.value,
+      photoDisplayDataUrl: capturedPhoto.value,
       title: form.title.trim(),
       description: form.description.trim(),
       contact: form.contact.trim(),

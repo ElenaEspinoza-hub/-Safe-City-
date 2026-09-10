@@ -14,6 +14,7 @@ const normalizeReport = (report) => ({
   lng: report.lng || report.longitude || report.longitud || '',
   consent: Boolean(report.consent ?? report.consentimiento),
   photoDataUrl: report.photoDataUrl || report.photo_data_url || report.imagen || '',
+  photoDisplayDataUrl: report.photoDisplayDataUrl || report.photo_display_data_url || '',
   createdAt: report.createdAt || report.created_at || report.fecha || new Date().toISOString()
 })
 
@@ -63,7 +64,7 @@ export const getReports = () => getCachedReports()
 
 export const fetchReports = async (limit = 10) => {
   // El contacto se conserva al registrar el reporte, pero no se publica en las noticias.
-  const publicFields = 'id,title,category,severity,description,lat,lng,photo_data_url,created_at'
+  const publicFields = 'id,title,category,severity,description,lat,lng,photo_data_url,photo_display_data_url,created_at'
   const response = await fetch(`${REPORTS_API_URL}?select=${publicFields}&order=created_at.desc&limit=${limit}`, {
     headers: getHeaders()
   })
@@ -91,7 +92,7 @@ export const fetchReportsPage = async ({ offset = 0, limit = 10, search = '' } =
   const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 10)
   const safeOffset = Math.max(Number(offset) || 0, 0)
   const safeSearch = sanitizeReportSearch(search)
-  const publicFields = 'id,title,category,severity,description,lat,lng,photo_data_url,created_at'
+  const publicFields = 'id,title,category,severity,description,lat,lng,photo_data_url,photo_display_data_url,created_at'
   const query = new URLSearchParams({
     select: publicFields,
     order: 'created_at.desc',
@@ -152,7 +153,7 @@ export const fetchNearbyReports = async (location, { radiusKm = 12, limit = 50 }
   // Un cuadro delimitador reduce los datos descargados; la distancia exacta se calcula en el navegador.
   const latitudeDelta = radiusKm / 111.32
   const longitudeDelta = radiusKm / (111.32 * Math.cos(toRadians(lat)))
-  const publicFields = 'id,title,category,severity,description,lat,lng,photo_data_url,created_at'
+  const publicFields = 'id,title,category,severity,description,lat,lng,photo_data_url,photo_display_data_url,created_at'
   const query = new URLSearchParams({
     select: publicFields,
     and: `(lat.gte.${lat - latitudeDelta},lat.lte.${lat + latitudeDelta},lng.gte.${lng - longitudeDelta},lng.lte.${lng + longitudeDelta})`,
@@ -188,6 +189,7 @@ export const addReport = async (report) => {
     lng: Number(normalized.lng),
     consent: normalized.consent,
     photo_data_url: normalized.photoDataUrl,
+    photo_display_data_url: normalized.photoDisplayDataUrl,
     created_at: normalized.createdAt
   }
 
