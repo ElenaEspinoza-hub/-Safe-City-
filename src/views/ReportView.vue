@@ -232,8 +232,8 @@ const pixelateImage = (dataUrl) => new Promise((resolve, reject) => {
       return
     }
 
-    // Bloques más grandes: se distingue el contexto, pero no los detalles.
-    const pixelSize = Math.max(22, Math.round(Math.min(canvas.width, canvas.height) / 18))
+    // Pixelación fuerte: deja ver solo la escena general, no detalles sensibles.
+    const pixelSize = Math.max(40, Math.round(Math.min(canvas.width, canvas.height) / 10))
     const reducedWidth = Math.max(1, Math.floor(canvas.width / pixelSize))
     const reducedHeight = Math.max(1, Math.floor(canvas.height / pixelSize))
     const reducedCanvas = document.createElement('canvas')
