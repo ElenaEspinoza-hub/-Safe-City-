@@ -909,7 +909,7 @@ to {
 
 .step-card p {
 
-  color:#475569;
+  color:#030303;
 
   line-height:1.6;
 
@@ -985,7 +985,7 @@ to {
   #3b82f6
   );
 
-  color:white;
+  color:rgb(12, 11, 11);
 
 }
 
@@ -1065,7 +1065,7 @@ to {
 
   border-radius:.8rem;
 
-  color:white;
+  color:rgb(8, 8, 8);
 
   font-weight:700;
 
@@ -1184,7 +1184,7 @@ to {
 
   text-align:center;
 
-  color:white;
+  color:rgb(8, 8, 8);
 
 }
 
@@ -1192,7 +1192,7 @@ to {
 
 .guide-finish h2 {
 
-  color:white;
+  color:rgb(17, 16, 16);
 
 }
 

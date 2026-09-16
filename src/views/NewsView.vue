@@ -86,7 +86,7 @@ onBeforeUnmount(() => clearTimeout(searchTimer))
 
       <div v-if="reports.length" class="recent-grid" :aria-busy="isLoading">
         <article v-for="report in reports" :key="report.id" class="recent-card">
-          <img :src="report.photoDisplayDataUrl || report.photoDataUrl || '/landing/accidente1.webp'" :alt="report.title" />
+          <img :src="report.photoDataUrl || report.photoDisplayDataUrl || '/landing/accidente1.webp'" :alt="report.title" />
           <div class="recent-card__body">
             <h2>{{ report.title }}</h2>
             <p>{{ report.description }}</p>

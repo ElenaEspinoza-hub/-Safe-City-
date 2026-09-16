@@ -230,7 +230,7 @@ onUnmounted(() => {
 
       <div v-if="recentReports.length" class="recent-grid">
         <article v-for="report in recentReports" :key="report.id" class="recent-card">
-          <img v-if="report.photoDisplayDataUrl || report.photoDataUrl" :src="report.photoDisplayDataUrl || report.photoDataUrl" :alt="report.title" />
+          <img v-if="report.photoDataUrl || report.photoDisplayDataUrl" :src="report.photoDataUrl || report.photoDisplayDataUrl" :alt="report.title" />
           <img v-else :src="accidentCards[0].image" :alt="report.title" />
 
           <div class="recent-card__body">
@@ -256,7 +256,7 @@ onUnmounted(() => {
       <div v-if="newsSlides.length" class="news-slider">
         <div class="news-track" :style="{ transform: `translateX(-${slideIndex * 100}%)` }">
           <article v-for="slide in newsSlides" :key="slide.title" class="news-slide">
-            <img :src="slide.photoDisplayDataUrl || slide.photoDataUrl || accidentCards[0].image" :alt="slide.title" />
+            <img :src="slide.photoDataUrl || slide.photoDisplayDataUrl || accidentCards[0].image" :alt="slide.title" />
             <div class="news-slide__overlay"></div>
 
             <div class="news-slide__content">

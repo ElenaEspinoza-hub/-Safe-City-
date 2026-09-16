@@ -255,8 +255,8 @@ const pixelateImage = (dataUrl) => new Promise((resolve, reject) => {
   image.src = dataUrl
 })
 
-const showProtectedPreview = async (message) => {
-  capturedPhoto.value = await pixelateImage(originalPhoto.value)
+const showUnmodifiedPreview = (message) => {
+  capturedPhoto.value = originalPhoto.value
   imageReviewMessage.value = message
 }
 
@@ -297,7 +297,7 @@ const reviewPhoto = async () => {
     const result = await Promise.race([reviewRequest, timeout])
 
     if (result?.timedOut) {
-      await showProtectedPreview(`La IA tardó más de ${reviewTimeout / 1000} segundos; la vista previa se pixeló, pero la foto original se guardará en la base de datos.`)
+      showUnmodifiedPreview(`La IA tardó más de ${reviewTimeout / 1000} segundos; se enviará la fotografía original.`)
       return
     }
 
@@ -312,14 +312,14 @@ const reviewPhoto = async () => {
     }
 
     if (review.isGraphic) {
-      await showProtectedPreview('La fotografía contiene material sensible; esta vista previa se pixeló. La foto original se guardará en la base de datos.')
+      showUnmodifiedPreview('La fotografía contiene material sensible, pero se enviará sin modificar.')
     } else {
       imageReviewMessage.value = 'Fotografía verificada por la IA.'
     }
   } catch (error) {
     if (error?.preventReport) throw error
     console.error('No se pudo revisar la fotografía:', error)
-    await showProtectedPreview('No fue posible completar la revisión; la vista previa se pixeló, pero la foto original se guardará en la base de datos.')
+    showUnmodifiedPreview('No fue posible completar la revisión; se enviará la fotografía original.')
   } finally {
     isReviewingImage.value = false
   }
@@ -341,9 +341,9 @@ const submitReport = async () => {
     await reviewPhoto()
     await addReport({
       ...form,
-      // Nunca sustituir el archivo de Supabase por la copia pixelada de UI.
+      // La imagen original se conserva tanto en la base como en la aplicación.
       photoDataUrl: originalPhoto.value,
-      photoDisplayDataUrl: capturedPhoto.value,
+      photoDisplayDataUrl: originalPhoto.value,
       title: form.title.trim(),
       description: form.description.trim(),
       contact: form.contact.trim(),

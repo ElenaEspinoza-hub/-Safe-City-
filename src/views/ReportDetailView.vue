@@ -234,10 +234,10 @@ const goBack = () => {
       </button>
 
 
-      <div v-if="report.photoDisplayDataUrl || report.photoDataUrl" class="photo-wrap">
+      <div v-if="report.photoDataUrl || report.photoDisplayDataUrl" class="photo-wrap">
 
         <img
-          :src="report.photoDisplayDataUrl || report.photoDataUrl"
+          :src="report.photoDataUrl || report.photoDisplayDataUrl"
           :alt="report.title"
         />
 
