@@ -132,6 +132,35 @@ const stopCamera = () => {
   isCameraOpen.value = false
 }
 
+const waitForCameraMetadata = (video) => new Promise((resolve, reject) => {
+  const cleanup = () => {
+    window.clearTimeout(timeout)
+    video.removeEventListener('loadedmetadata', onLoaded)
+    video.removeEventListener('error', onError)
+  }
+  const onLoaded = () => {
+    cleanup()
+    resolve()
+  }
+  const onError = () => {
+    cleanup()
+    reject(new Error('El navegador no pudo cargar la fuente de la cámara.'))
+  }
+  const timeout = window.setTimeout(() => {
+    cleanup()
+    reject(new Error('La cámara tardó demasiado en iniciar. Cierra otras aplicaciones que la estén usando e inténtalo otra vez.'))
+  }, 10_000)
+
+  if (video.readyState >= HTMLMediaElement.HAVE_METADATA && video.videoWidth > 0) {
+    cleanup()
+    resolve()
+    return
+  }
+
+  video.addEventListener('loadedmetadata', onLoaded, { once: true })
+  video.addEventListener('error', onError, { once: true })
+})
+
 const startCamera = async () => {
   cameraError.value = ''
   savedMessage.value = ''
@@ -159,6 +188,7 @@ const startCamera = async () => {
 
     cameraVideo.value.srcObject = cameraStream
     cameraVideo.value.muted = true
+    await waitForCameraMetadata(cameraVideo.value)
     await cameraVideo.value.play()
   } catch (error) {
     if (error?.name === 'NotAllowedError') {

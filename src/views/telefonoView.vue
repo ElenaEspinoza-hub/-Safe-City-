@@ -173,7 +173,7 @@ const goToLocation = (institution) => {
         </p>
 
         <div class="alert-box">
-          <p class="alert-box__icon">📞</p>
+          <p class="alert-box__icon"></p>
           <p class="alert-box__text">
             En una emergencia, llama inmediatamente al servicio correspondiente y comparte tu ubicación.
           </p>
@@ -262,10 +262,10 @@ const goToLocation = (institution) => {
         <!-- Acciones inferiores -->
         <div class="action-buttons">
           <button @click="goToReport" class="action-button action-button--primary">
-            📋 Reportar accidente
+             Reportar accidente
           </button>
           <button @click="goToMap" class="action-button action-button--secondary">
-            🗺️ Ver mapa
+             Ver mapa
           </button>
         </div>
       </div>
@@ -299,7 +299,7 @@ const goToLocation = (institution) => {
 .emergency-intro {
   padding: 3rem;
   color: white;
-  background: linear-gradient(160deg, #dc2626 0%, #f97316 100%);
+  background: linear-gradient(160deg,  #1640f9, #1640f9, #f12222 );
   display: flex;
   flex-direction: column;
   border-radius: 2rem;
@@ -402,7 +402,7 @@ const goToLocation = (institution) => {
 .featured-card {
   padding: 2rem;
   border-radius: 2rem;
-  background: linear-gradient(135deg, #dc2626, #f97316);
+  background: linear-gradient(135deg, #1640f9, #fa2f2f);
   display: flex;
   justify-content: space-between;
   align-items: center;

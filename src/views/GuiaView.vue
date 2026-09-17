@@ -658,7 +658,7 @@ Ver mapa
 
   padding:3rem;
 
-  color:white;
+  color:rgb(255, 255, 255);
 
   background:
   linear-gradient(
@@ -985,7 +985,7 @@ to {
   #3b82f6
   );
 
-  color:rgb(12, 11, 11);
+  color:rgb(252, 252, 252);
 
 }
 
@@ -1024,7 +1024,7 @@ to {
 
   border-radius:1rem;
 
-  background:#f8fbff;
+  background:#2453ec;
 
   border:1px solid #dbeafe;
 
@@ -1065,7 +1065,7 @@ to {
 
   border-radius:.8rem;
 
-  color:rgb(8, 8, 8);
+  color:rgb(255, 255, 255);
 
   font-weight:700;
 
@@ -1085,7 +1085,7 @@ to {
 
 .action-button--green {
 
-  background:#16a34a;
+  background:#02702a;
 
 }
 
@@ -1106,7 +1106,7 @@ to {
 
   border-radius:1.5rem;
 
-  background:#dbeafe;
+  background:#4594fc;
 
 }
 
@@ -1131,6 +1131,7 @@ to {
   border:1px solid #cbd5e1;
 
   background:white;
+  color: #000000;
 
   cursor:pointer;
 
@@ -1184,7 +1185,7 @@ to {
 
   text-align:center;
 
-  color:rgb(8, 8, 8);
+  color:rgb(255, 255, 255);
 
 }
 
@@ -1192,7 +1193,7 @@ to {
 
 .guide-finish h2 {
 
-  color:rgb(17, 16, 16);
+  color:rgb(255, 255, 255);
 
 }
 
