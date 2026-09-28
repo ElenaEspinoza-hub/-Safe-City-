@@ -78,6 +78,22 @@ export const fetchReports = async (limit = 10) => {
   return reports
 }
 
+export const fetchReportCount = async () => {
+  const response = await fetch(`${REPORTS_API_URL}?select=id`, {
+    method: 'HEAD',
+    headers: { ...getHeaders(), Prefer: 'count=exact', Range: '0-0' }
+  })
+
+  if (!response.ok) {
+    throw new Error('No se pudo cargar el total de reportes.')
+  }
+
+  const contentRange = response.headers.get('Content-Range') || ''
+  const total = Number(contentRange.split('/').at(-1))
+  if (!Number.isFinite(total)) throw new Error('La API no devolvió el total de reportes.')
+  return total
+}
+
 const REPORT_SEARCH_MAX_LENGTH = 70
 
 // La búsqueda se limita a caracteres que no alteran la sintaxis de filtros de PostgREST.

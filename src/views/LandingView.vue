@@ -2,13 +2,16 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import logoImage from '../assets/logo.png'
-import { fetchReports } from '../utils/reportsStore'
+import { fetchReportCount, fetchReports } from '../utils/reportsStore'
 import { authLoading, authUser, signOut } from '../utils/authStore'
+import { insforge } from '../utils/insforgeClient'
 
 const router = useRouter()
 const isMenuOpen = ref(false)
 const slideIndex = ref(0)
 const reports = ref([])
+const reportCount = ref(null)
+const signedInUserCount = ref(null)
 
 const currentYear = computed(() => new Date().getFullYear())
 
@@ -20,6 +23,22 @@ const loadReports = async () => {
   } catch (error) {
     reports.value = []
     console.warn('No se pudieron cargar los reportes.', error)
+  }
+}
+
+const loadStats = async () => {
+  const [reportsResult, usersResult] = await Promise.allSettled([
+    fetchReportCount(),
+    insforge.database.rpc('get_signed_in_user_count')
+  ])
+  if (reportsResult.status === 'fulfilled') reportCount.value = reportsResult.value
+  else console.warn('No se pudo cargar el total de accidentes.', reportsResult.reason)
+
+  if (usersResult.status === 'fulfilled' && !usersResult.value.error) {
+    const value = usersResult.value.data
+    signedInUserCount.value = Number(Array.isArray(value) ? value[0]?.get_signed_in_user_count : value)
+  } else {
+    console.warn('No se pudo cargar el total de usuarios.', usersResult.reason || usersResult.value?.error)
   }
 }
 
@@ -116,6 +135,7 @@ watch(newsSlides, (slides) => {
 onMounted(() => {
   startAutoSlide()
   loadReports()
+  loadStats()
 })
 
 onUnmounted(() => {
@@ -205,7 +225,7 @@ onUnmounted(() => {
 
     <section class="stats">
       <article class="stat-card">
-        <h3 class="tone-red">1245</h3>
+        <h3 class="tone-red">{{ reportCount ?? '—' }}</h3>
         <p>Accidentes</p>
       </article>
 
@@ -220,8 +240,8 @@ onUnmounted(() => {
       </article>
 
       <article class="stat-card">
-        <h3 class="tone-blue">12K+</h3>
-        <p>Usuarios</p>
+        <h3 class="tone-blue">{{ signedInUserCount ?? '—' }}</h3>
+        <p>Cuentas que han iniciado sesion</p>
       </article>
     </section>
 

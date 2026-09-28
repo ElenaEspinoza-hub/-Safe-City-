@@ -7,8 +7,49 @@ const router = useRouter()
 
 const currentStep = ref(1)
 
-const quizResult = ref('')
-const quizIsCorrect = ref(false)
+const quizAnswer = ref(null)
+const quizQuestionIndex = ref(0)
+const quizCompleted = ref(false)
+const quizQuestions = [
+  {
+    prompt: '¿Qué debes hacer primero cuando presencias un accidente?',
+    answers: [
+      { id: 'leave', label: 'A) Alejarte sin avisar.' },
+      { id: 'protect', label: 'B) Protegerte y revisar que sea seguro acercarte.' },
+      { id: 'move', label: 'C) Mover a las personas heridas de inmediato.' }
+    ],
+    correctAnswer: 'protect',
+    explanation: 'Primero protégete y revisa los riesgos. Después avisa a emergencias.'
+  },
+  {
+    prompt: '¿A qué número puedes llamar para pedir atención médica de emergencia en El Salvador?',
+    answers: [
+      { id: '911', label: 'A) 911.' },
+      { id: '132', label: 'B) 132.' },
+      { id: 'none', label: 'C) No hace falta avisar.' }
+    ],
+    correctAnswer: '132',
+    explanation: 'El 132 corresponde al Sistema de Emergencias Médicas. El 911 atiende emergencias generales.'
+  },
+  {
+    prompt: '¿Qué debes hacer con una persona herida si no hay un peligro inmediato?',
+    answers: [
+      { id: 'move', label: 'A) Moverla para que esté más cómoda.' },
+      { id: 'water', label: 'B) Darle agua.' },
+      { id: 'still', label: 'C) Evitar moverla y seguir las instrucciones de emergencias.' }
+    ],
+    correctAnswer: 'still',
+    explanation: 'Evita mover a la persona herida salvo que exista un peligro inmediato y sigue las instrucciones del operador.'
+  }
+]
+const currentQuizQuestion = computed(() => quizQuestions[quizQuestionIndex.value])
+const quizIsCorrect = computed(() => quizAnswer.value === currentQuizQuestion.value.correctAnswer)
+const quizResult = computed(() => {
+  if (quizAnswer.value === null) return ''
+  return quizIsCorrect.value
+    ? `¡Correcto! ${currentQuizQuestion.value.explanation}`
+    : `Respuesta incorrecta. ${currentQuizQuestion.value.explanation}`
+})
 
 
 const guideSteps = [
@@ -94,15 +135,41 @@ const faqs = [
   }
 ]
 
+const accidentActions = [
+  {
+    title: '1. Protégete y revisa el entorno',
+    description: 'Detente en un lugar seguro, enciende las luces de emergencia y observa el tráfico, humo, fuego, derrames o cables caídos antes de acercarte. No te expongas para tomar fotos ni para colocar señales.'
+  },
+  {
+    title: '2. Avisa a emergencias en El Salvador',
+    description: 'Llama al 911 para una emergencia general o al 132 para solicitar atención médica del Sistema de Emergencias Médicas. Indica municipio, carretera o punto de referencia, sentido de circulación, cantidad de vehículos y personas heridas, y cualquier peligro presente.'
+  },
+  {
+    title: '3. Ayuda sin agravar las lesiones',
+    description: 'No muevas a una persona herida ni le quites el casco, salvo que exista un peligro inmediato. No des líquidos a una persona inconsciente. Sigue las instrucciones del operador de emergencias y tranquiliza a la persona mientras llega ayuda.'
+  },
+  {
+    title: '4. Comparte información útil',
+    description: 'Cuando ya estés a salvo, reporta el incidente en Safe City con la ubicación y una descripción clara. No publiques nombres, rostros, placas ni imágenes sensibles de las personas afectadas.'
+  }
+]
 
-const answerQuiz = (correct) => {
 
-  quizIsCorrect.value = correct
+const answerQuiz = (answer) => {
+  if (quizAnswer.value !== null || quizCompleted.value) return
+  quizAnswer.value = answer
+}
 
-  quizResult.value = correct
-    ? '¡Correcto! Mantén la calma y reporta el accidente.'
-    : 'Respuesta incorrecta. Primero debes mantener la calma y reportar.'
+const nextQuizQuestion = () => {
+  if (quizAnswer.value === null || quizCompleted.value) return
 
+  if (quizQuestionIndex.value === quizQuestions.length - 1) {
+    quizCompleted.value = true
+    return
+  }
+
+  quizQuestionIndex.value += 1
+  quizAnswer.value = null
 }
 
 
@@ -340,6 +407,20 @@ Continuar
 
 
 
+<section class="accident-guide" aria-labelledby="accident-guide-title">
+  <p class="guide-header__eyebrow">Orientación para El Salvador</p>
+  <h2 id="accident-guide-title">¿Qué hacer ante un accidente de tránsito?</h2>
+  <p class="accident-guide__intro">Sigue el principio PAS: Proteger, Avisar y Socorrer. Primero cuida tu seguridad; una persona más en riesgo dificulta la atención.</p>
+
+  <article v-for="action in accidentActions" :key="action.title" class="accident-action">
+    <h3>{{ action.title }}</h3>
+    <p>{{ action.description }}</p>
+  </article>
+
+
+  
+</section>
+
 <section 
 id="preguntas"
 class="faq-section"
@@ -443,75 +524,43 @@ Ver mapa
 
 
 
-<p>
-¿Qué debes hacer primero cuando presencias un accidente?
-</p>
+<template v-if="!quizCompleted">
+  <p class="quiz__progress">Pregunta {{ quizQuestionIndex + 1 }} de {{ quizQuestions.length }}</p>
+  <p id="quiz-question">{{ currentQuizQuestion.prompt }}</p>
 
+  <div class="quiz__answers" role="group" aria-labelledby="quiz-question">
+    <button
+      v-for="choice in currentQuizQuestion.answers"
+      :key="choice.id"
+      type="button"
+      :disabled="quizAnswer !== null"
+      :class="{
+        'quiz__answer--correct': quizAnswer !== null && choice.id === currentQuizQuestion.correctAnswer,
+        'quiz__answer--incorrect': quizAnswer === choice.id && !quizIsCorrect
+      }"
+      @click="answerQuiz(choice.id)"
+    >
+      {{ choice.label }}
+    </button>
+  </div>
 
+  <p
+    v-if="quizResult"
+    class="quiz__result"
+    :class="{ 'quiz__result--correct': quizIsCorrect }"
+    role="status"
+    aria-live="polite"
+  >
+    {{ quizResult }}
+  </p>
 
-<div class="quiz__answers">
+  <button type="button" class="quiz__next" :disabled="quizAnswer === null" @click="nextQuizQuestion">
+    Siguiente
+  </button>
+</template>
 
-
-<button
-
-type="button"
-
-@click="answerQuiz(false)"
-
->
-
-A) Alejarte sin avisar.
-
-</button>
-
-
-
-<button
-
-type="button"
-
-@click="answerQuiz(true)"
-
->
-
-B) Mantener la calma y reportar el accidente.
-
-</button>
-
-
-
-<button
-
-type="button"
-
-@click="answerQuiz(false)"
-
->
-
-C) Mover a las personas sin ayuda.
-
-</button>
-
-
-
-</div>
-
-
-
-
-
-<p
-
-v-if="quizResult"
-
-class="quiz__result"
-
-:class="{ 'quiz__result--correct': quizIsCorrect }"
-
->
-
-{{ quizResult }}
-
+<p v-else class="quiz__result quiz__result--correct" role="status" aria-live="polite">
+  ¡Cuestionario completado! Ya repasaste cómo protegerte, avisar a emergencias y ayudar con precaución.
 </p>
 
 
@@ -611,13 +660,13 @@ Ver mapa
   background:
   radial-gradient(
     circle at 15% 10%,
-    #bfdbfe,
+    #020202,
     transparent 25rem
   ),
   linear-gradient(
     135deg,
     #dbeafe,
-    #f8fbff
+    #000000
   );
 
 }
@@ -687,6 +736,7 @@ Ver mapa
 
 .guide-intro__eyebrow,
 .guide-header__eyebrow {
+  color: #ffffff;
 
   text-transform:uppercase;
 
@@ -985,7 +1035,7 @@ to {
   #3b82f6
   );
 
-  color:rgb(252, 252, 252);
+  color:rgb(0, 0, 0);
 
 }
 
@@ -1002,6 +1052,64 @@ to {
 
   margin-top:3rem;
 
+}
+
+.accident-guide {
+  margin-top: 3rem;
+  padding: 1.5rem;
+  border: 1px solid #bfdbfe;
+  border-radius: 1.5rem;
+  background: #eff6ff;
+}
+
+.accident-guide h2 {
+  margin: .35rem 0;
+  color: #102d75;
+}
+
+.accident-guide__intro,
+.accident-action p,
+.emergency-numbers p,
+.accident-guide__source {
+  line-height: 1.6;
+  color: #000000;
+}
+
+.accident-action {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  background: #fff;
+}
+
+.accident-action h3,
+.emergency-numbers h3 {
+  margin: 0;
+  color: #123269;
+}
+
+.accident-action p,
+.emergency-numbers p {
+  margin: .4rem 0 0;
+  color: #1e293b;
+}
+
+.emergency-numbers {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  background: #dbeafe;
+}
+
+.emergency-numbers a {
+  color: #123269;
+  font-weight: 800;
+}
+
+.accident-guide__source {
+  margin: 1rem 0 0;
+  color: #475569;
+  font-size: .85rem;
 }
 
 
@@ -1139,6 +1247,31 @@ to {
 
 }
 
+.quiz__answers button:disabled {
+  cursor: default;
+  opacity: .82;
+}
+
+.quiz__progress {
+  margin-bottom: .5rem;
+  color: #123269;
+  font-size: .9rem;
+  font-weight: 700;
+}
+
+.quiz__answers button.quiz__answer--correct {
+  border-color: #15803d;
+  background: #dcfce7;
+  color: #14532d;
+  font-weight: 700;
+}
+
+.quiz__answers button.quiz__answer--incorrect {
+  border-color: #b91c1c;
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+
 
 
 .quiz__result {
@@ -1147,7 +1280,7 @@ to {
 
   border-radius:.8rem;
 
-  background:#fee2e2;
+  background:#e90f0f;
 
 }
 
@@ -1156,7 +1289,29 @@ to {
 .quiz__result--correct {
 
   background:#dcfce7;
+  color:#14532d;
 
+}
+
+.quiz__result:not(.quiz__result--correct) {
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+
+.quiz__next {
+  margin-top: .8rem;
+  border: 0;
+  border-radius: .8rem;
+  padding: .8rem 1rem;
+  background: #123269;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.quiz__next:disabled {
+  cursor: not-allowed;
+  opacity: .55;
 }
 
 
